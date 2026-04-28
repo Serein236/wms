@@ -4,7 +4,15 @@ const path = require('path');
 const LOGS_DIR = path.join(__dirname, '../logs');
 
 /**
+ * 日志控制器
+ * 处理系统日志的查询、筛选和原始内容获取
+ * @namespace logController
+ */
+
+/**
  * 解析日志文件内容为结构化数据
+ * @param {string} filePath - 日志文件路径
+ * @returns {Array<Object>} 解析后的日志对象数组
  */
 function parseLogFile(filePath) {
     const logs = [];
@@ -95,7 +103,25 @@ function parseLogFile(filePath) {
 }
 
 /**
- * 获取日志列表
+ * 获取日志列表（支持筛选和分页）
+ * @async
+ * @param {Object} req - Express请求对象
+ * @param {string} [req.query.date=today] - 日期筛选（today/yesterday/week/month/all/YYYY-MM-DD）
+ * @param {string} [req.query.level=all] - 级别筛选（all/INFO/WARN/ERROR）
+ * @param {string} [req.query.action] - 操作类型筛选
+ * @param {string} [req.query.operator] - 操作人用户名筛选
+ * @param {string} [req.query.operatorId] - 操作人ID筛选
+ * @param {string} [req.query.target] - 操作对象筛选
+ * @param {string} [req.query.keyword] - 关键词搜索
+ * @param {string} [req.query.startTime] - 开始时间 HH:mm
+ * @param {string} [req.query.endTime] - 结束时间 HH:mm
+ * @param {number} [req.query.page=1] - 页码
+ * @param {number} [req.query.pageSize=50] - 每页数量
+ * @param {Object} res - Express响应对象
+ * @returns {Promise<void>}
+ * @description 获取日志列表，支持多种筛选条件和分页
+ * @success {Object} { success: true, logs: Array, stats: Object, pagination: Object }
+ * @error {Object} { success: false, message: string }
  */
 async function getLogs(req, res) {
     try {
@@ -277,6 +303,14 @@ async function getLogs(req, res) {
 
 /**
  * 获取原始日志内容
+ * @async
+ * @param {Object} req - Express请求对象
+ * @param {string} [req.query.date=today] - 日期筛选（today/yesterday/week/all/YYYY-MM-DD）
+ * @param {Object} res - Express响应对象
+ * @returns {Promise<void>}
+ * @description 获取指定日期的原始日志文件内容
+ * @success {Object} { success: true, content: string }
+ * @error {Object} { success: false, message: string }
  */
 async function getRawLogs(req, res) {
     try {
@@ -347,6 +381,13 @@ async function getRawLogs(req, res) {
 
 /**
  * 获取可用的日志日期列表
+ * @async
+ * @param {Object} req - Express请求对象
+ * @param {Object} res - Express响应对象
+ * @returns {Promise<void>}
+ * @description 获取系统中所有可用的日志文件日期列表
+ * @success {Object} { success: true, dates: Array<string> }
+ * @error {Object} { success: false, message: string }
  */
 async function getLogDates(req, res) {
     try {

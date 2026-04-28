@@ -3,7 +3,29 @@ const bcrypt = require('bcryptjs');
 const UserModel = require('../models/UserModel');
 const logger = require('../utils/logger');
 
+/**
+ * 认证控制器
+ * 处理用户登录、登出、用户管理等相关操作
+ * @namespace authController
+ */
 const authController = {
+    /**
+     * 用户登录
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.body - 请求体
+     * @param {string} req.body.username - 用户名
+     * @param {string} req.body.password - 密码
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 验证用户凭据，创建会话，返回用户角色信息
+     * @success {Object} { success: true, role: string }
+     * @error {Object} { success: false, message: string }
+     * @example
+     * POST /api/auth/login
+     * Body: { "username": "admin", "password": "admin123" }
+     * Response: { "success": true, "role": "admin" }
+     */
     async login(req, res) {
         const { username, password } = req.body;
 
@@ -51,6 +73,17 @@ const authController = {
         }
     },
 
+    /**
+     * 用户登出
+     * @param {Object} req - Express请求对象
+     * @param {Object} res - Express响应对象
+     * @returns {void}
+     * @description 销毁用户会话，完成登出操作
+     * @success {Object} { success: true }
+     * @example
+     * POST /api/auth/logout
+     * Response: { "success": true }
+     */
     logout(req, res) {
         const username = req.session.username;
         const userId = req.session.userId;
@@ -59,6 +92,17 @@ const authController = {
         res.json({ success: true });
     },
 
+    /**
+     * 获取当前登录用户信息
+     * @param {Object} req - Express请求对象
+     * @param {Object} res - Express响应对象
+     * @returns {void}
+     * @description 返回当前用户的登录状态和用户名
+     * @success {Object} { loggedIn: boolean, username: string }
+     * @example
+     * GET /api/auth/current-user
+     * Response: { "loggedIn": true, "username": "admin" }
+     */
     getCurrentUser(req, res) {
         res.json({
             loggedIn: !!req.session.userId,
@@ -66,7 +110,18 @@ const authController = {
         });
     },
 
-    // 检查当前用户是否为管理员
+    /**
+     * 检查当前用户是否为管理员
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 检查当前登录用户是否具有管理员权限
+     * @success {Object} { isAdmin: boolean }
+     * @example
+     * GET /api/auth/check-admin
+     * Response: { "isAdmin": true }
+     */
     async checkAdmin(req, res) {
         try {
             if (!req.session.userId) {
@@ -81,7 +136,19 @@ const authController = {
         }
     },
 
-    // 获取用户列表
+    /**
+     * 获取用户列表（管理员权限）
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 获取系统中所有用户的信息列表，需要管理员权限
+     * @success {Object} { success: true, users: Array<User> }
+     * @error {Object} { success: false, message: string }
+     * @example
+     * GET /api/auth/users
+     * Response: { "success": true, "users": [{ "id": 1, "username": "admin", "role": "admin", "is_active": true }] }
+     */
     async getUserList(req, res) {
         const username = req.session?.username;
         const userId = req.session?.userId;
@@ -95,7 +162,24 @@ const authController = {
         }
     },
 
-    // 创建用户
+    /**
+     * 创建新用户（管理员权限）
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.body - 请求体
+     * @param {string} req.body.username - 用户名
+     * @param {string} req.body.password - 密码（至少6位）
+     * @param {string} [req.body.role=user] - 用户角色（admin/user）
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 创建新用户，需要管理员权限
+     * @success {Object} { success: true, message: string }
+     * @error {Object} { success: false, message: string }
+     * @example
+     * POST /api/auth/users
+     * Body: { "username": "newuser", "password": "123456", "role": "user" }
+     * Response: { "success": true, "message": "用户创建成功" }
+     */
     async createUser(req, res) {
         const { username, password, role = 'user' } = req.body;
 
@@ -130,7 +214,26 @@ const authController = {
         }
     },
 
-    // 更新用户
+    /**
+     * 更新用户信息（管理员权限）
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.params - 路由参数
+     * @param {number} req.params.id - 用户ID
+     * @param {Object} req.body - 请求体
+     * @param {string} [req.body.username] - 新用户名
+     * @param {string} [req.body.role] - 新角色（admin/user）
+     * @param {string} [req.body.password] - 新密码（至少6位）
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 更新指定用户的信息，可以修改用户名、角色或密码，需要管理员权限
+     * @success {Object} { success: true, message: string }
+     * @error {Object} { success: false, message: string }
+     * @example
+     * PUT /api/auth/users/1
+     * Body: { "role": "admin" }
+     * Response: { "success": true, "message": "用户更新成功" }
+     */
     async updateUser(req, res) {
         const { id } = req.params;
         const { username, role, password } = req.body;
@@ -183,7 +286,21 @@ const authController = {
         }
     },
 
-    // 删除用户
+    /**
+     * 删除用户（管理员权限）
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.params - 路由参数
+     * @param {number} req.params.id - 用户ID
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 删除指定用户，不能删除自己和最后一个管理员，需要管理员权限
+     * @success {Object} { success: true, message: string }
+     * @error {Object} { success: false, message: string }
+     * @example
+     * DELETE /api/auth/users/1
+     * Response: { "success": true, "message": "用户删除成功" }
+     */
     async deleteUser(req, res) {
         const { id } = req.params;
 
@@ -219,7 +336,21 @@ const authController = {
         }
     },
 
-    // 切换用户状态（启用/禁用）
+    /**
+     * 切换用户启用/禁用状态（管理员权限）
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.params - 路由参数
+     * @param {number} req.params.id - 用户ID
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 切换指定用户的启用/禁用状态，不能禁用自己和最后一个管理员，需要管理员权限
+     * @success {Object} { success: true, message: string, isActive: boolean }
+     * @error {Object} { success: false, message: string }
+     * @example
+     * POST /api/auth/users/1/toggle
+     * Response: { "success": true, "message": "用户已启用", "isActive": true }
+     */
     async toggleUserStatus(req, res) {
         const { id } = req.params;
 
@@ -256,7 +387,18 @@ const authController = {
         }
     },
 
-    // 检查admin是否使用默认密码
+    /**
+     * 检查admin是否使用默认密码
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 检查admin用户是否仍在使用默认密码（admin123），用于安全提醒
+     * @success {Object} { isDefault: boolean }
+     * @example
+     * GET /api/auth/check-default-admin
+     * Response: { "isDefault": true }
+     */
     async checkDefaultAdmin(req, res) {
         try {
             const admin = await UserModel.findByUsername('admin');

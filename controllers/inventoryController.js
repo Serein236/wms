@@ -7,7 +7,34 @@ const StockMethodModel = require('../models/StockMethodModel');
 const dbUtils = require('../utils/dbUtils');
 const logger = require('../utils/logger');
 
+/**
+ * 库存控制器
+ * 处理商品入库、出库、库存查询、记录管理等相关操作
+ * @namespace inventoryController
+ */
 const inventoryController = {
+    /**
+     * 商品入库
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.body - 请求体
+     * @param {number} req.body.product_id - 商品ID
+     * @param {string} req.body.stock_method_name - 入库方式
+     * @param {string} [req.body.batch_number] - 批次号
+     * @param {string} [req.body.production_date] - 生产日期
+     * @param {string} [req.body.expiration_date] - 保质期
+     * @param {number} req.body.quantity - 数量
+     * @param {number} [req.body.unit_price] - 单价
+     * @param {number} [req.body.total_amount] - 总金额
+     * @param {string} [req.body.source] - 供应商/来源
+     * @param {string} [req.body.remark] - 备注
+     * @param {string} req.body.recorded_date - 记录日期
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 记录商品入库信息，增加库存数量
+     * @success {Object} { success: true }
+     * @error {Object} { success: false, message: string }
+     */
     async inStock(req, res) {
         const { product_id, stock_method_name, batch_number, production_date, expiration_date, quantity, unit_price, total_amount, source, remark, recorded_date } = req.body;
         const created_by = req.session.userId; // 从会话中获取当前用户ID
@@ -38,6 +65,26 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 商品出库
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.body - 请求体
+     * @param {number} req.body.product_id - 商品ID
+     * @param {string} req.body.stock_method_name - 出库方式
+     * @param {string} [req.body.batch_number] - 批次号
+     * @param {number} req.body.quantity - 数量
+     * @param {number} [req.body.unit_price] - 单价
+     * @param {number} [req.body.total_amount] - 总金额
+     * @param {string} [req.body.destination] - 客户/去向
+     * @param {string} [req.body.remark] - 备注
+     * @param {string} req.body.recorded_date - 记录日期
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 记录商品出库信息，减少库存数量
+     * @success {Object} { success: true }
+     * @error {Object} { success: false, message: string }
+     */
     async outStock(req, res) {
         const { product_id, stock_method_name, batch_number, quantity, unit_price, total_amount, destination, remark, recorded_date } = req.body;
         const created_by = req.session.userId; // 从会话中获取当前用户ID
@@ -67,6 +114,18 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 获取入库记录列表
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {string} [req.query.month] - 月份筛选
+     * @param {number} [req.query.product_id] - 商品ID筛选
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 获取入库记录列表，支持按月份和商品筛选
+     * @success {Array<InRecord>} 入库记录数组
+     * @error {Object} { error: string }
+     */
     async getInRecords(req, res) {
         const username = req.session.username;
         const userId = req.session.userId;
@@ -87,6 +146,18 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 获取出库记录列表
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {string} [req.query.month] - 月份筛选
+     * @param {number} [req.query.product_id] - 商品ID筛选
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 获取出库记录列表，支持按月份和商品筛选
+     * @success {Array<OutRecord>} 出库记录数组
+     * @error {Object} { error: string }
+     */
     async getOutRecords(req, res) {
         const username = req.session.username;
         const userId = req.session.userId;
@@ -107,6 +178,16 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 获取库存报表
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 获取所有商品的当前库存状况报表
+     * @success {Array<StockReport>} 库存报表数组
+     * @error {Object} { error: string }
+     */
     async getStock(req, res) {
         const username = req.session.username;
         const userId = req.session.userId;
@@ -122,6 +203,18 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 查询商品明细
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {number} req.params.productId - 商品ID
+     * @param {string} [req.query.month] - 月份筛选
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 查询指定商品的详细出入库记录和库存变动
+     * @success {Object} { success: true, product: Object, records: Array }
+     * @error {Object} { success: false, message: string }
+     */
     async queryProductDetail(req, res) {
         const { productId } = req.params;
         const { month } = req.query;
@@ -152,6 +245,17 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 获取出入库方式列表
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {string} [req.query.type] - 类型筛选（in/out）
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 获取可用的出入库方式名称列表
+     * @success {Array<string>} 方式名称数组
+     * @error {Object} { error: string }
+     */
     async getStockMethods(req, res) {
         const { type } = req.query;
         const username = req.session.username;
@@ -168,6 +272,18 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 获取商品批次列表
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.params - 路由参数
+     * @param {number} req.params.productId - 商品ID
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 获取指定商品的所有批次及库存信息
+     * @success {Array<Object>} 批次信息数组 [{ batch_number, current_stock }]
+     * @error {Object} { error: string }
+     */
     async getProductBatches(req, res) {
         const { productId } = req.params;
         const username = req.session?.username;
@@ -187,6 +303,18 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 获取出库记录详情
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.params - 路由参数
+     * @param {number} req.params.id - 出库记录ID
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 获取指定出库记录的详细信息，包括关联的商品和批次信息
+     * @success {Object} 出库记录详情
+     * @error {Object} { error: string }
+     */
     async getOutRecordById(req, res) {
         const { id } = req.params;
         const username = req.session?.username || '未登录用户';
@@ -257,6 +385,17 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 获取供应商列表
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {string} [req.query.query] - 查询关键词（至少2个字符）
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 获取入库记录中的供应商列表，支持模糊查询
+     * @success {Array<string>} 供应商名称数组
+     * @error {Object} { error: string }
+     */
     async getSuppliers(req, res) {
         const username = req.session?.username;
         const userId = req.session?.userId;
@@ -284,6 +423,17 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 获取客户列表
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {string} [req.query.query] - 查询关键词（至少2个字符）
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 获取出库记录中的客户/去向列表，支持模糊查询
+     * @success {Array<string>} 客户名称数组
+     * @error {Object} { error: string }
+     */
     async getCustomers(req, res) {
         const username = req.session?.username;
         const userId = req.session?.userId;
@@ -350,6 +500,18 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 撤销入库记录
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.params - 路由参数
+     * @param {number} req.params.id - 入库记录ID
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 撤销指定的入库记录，恢复库存数量
+     * @success {Object} { success: true }
+     * @error {Object} { success: false, message: string }
+     */
     async cancelInStock(req, res) {
         const { id } = req.params;
         const username = req.session?.username;
@@ -367,6 +529,19 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 修改入库记录
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.params - 路由参数
+     * @param {number} req.params.id - 入库记录ID
+     * @param {Object} req.body - 更新的数据
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 修改入库记录信息，同时调整库存数量
+     * @success {Object} { success: true }
+     * @error {Object} { success: false, message: string }
+     */
     async updateInStock(req, res) {
         const { id } = req.params;
         const updateData = req.body;
@@ -424,6 +599,18 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 撤销出库记录
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.params - 路由参数
+     * @param {number} req.params.id - 出库记录ID
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 撤销指定的出库记录，恢复库存数量
+     * @success {Object} { success: true }
+     * @error {Object} { success: false, message: string }
+     */
     async cancelOutStock(req, res) {
         const { id } = req.params;
         const username = req.session?.username;
@@ -441,6 +628,19 @@ const inventoryController = {
         }
     },
 
+    /**
+     * 修改出库记录
+     * @async
+     * @param {Object} req - Express请求对象
+     * @param {Object} req.params - 路由参数
+     * @param {number} req.params.id - 出库记录ID
+     * @param {Object} req.body - 更新的数据
+     * @param {Object} res - Express响应对象
+     * @returns {Promise<void>}
+     * @description 修改出库记录信息，同时调整库存数量
+     * @success {Object} { success: true }
+     * @error {Object} { success: false, message: string }
+     */
     async updateOutStock(req, res) {
         const { id } = req.params;
         const updateData = req.body;

@@ -152,6 +152,8 @@ store/
 
 ## API 接口
 
+> 📚 **交互式 API 文档**: 启动服务器后访问 <http://localhost:3000/api-docs> 查看完整的 Swagger/OpenAPI 文档
+
 ### 认证
 - `POST /api/auth/login` - 登录
 - `POST /api/auth/logout` - 登出
