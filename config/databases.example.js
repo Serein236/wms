@@ -1,12 +1,13 @@
-// config/database.example.js
+// config/databases.example.js
+// 复制此文件为 databases.js 并修改数据库配置
 const mysql = require('mysql2');
 
-// 数据库配置
+// 数据库配置 - 请根据实际情况修改
 const dbConfig = {
-    host: 'localhost',
-    user: 'your_database_username', // 请修改为你的数据库用户名
-    password: 'your_database_password', // 请修改为你的数据库密码
-    database: 'your_database_name', // 请修改为你的数据库名
+    host: 'localhost',           // 数据库地址
+    user: 'your_username',       // 数据库用户名
+    password: 'your_password',   // 数据库密码
+    database: 'warehouse',       // 数据库名
     charset: 'utf8mb4',
     waitForConnections: true,
     connectionLimit: 10,

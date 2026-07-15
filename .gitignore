@@ -1,3 +1,6 @@
+# MiMoCode session data
+.mimocode/
+
 # Logs
 logs
 *.log
@@ -145,8 +148,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Package manager files
-package-lock.json
+# Package manager lock files (yarn/pnpm only - npm lock should be committed)
 yarn.lock
 pnpm-lock.yaml
 

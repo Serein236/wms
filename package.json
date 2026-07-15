@@ -2,7 +2,7 @@
   "name": "warehouse-system",
   "version": "1.0.0",
   "description": "仓库进销存管理系统",
-  "main": "server.js",
+  "main": "store.js",
   "scripts": {
     "start": "node store.js"
   },

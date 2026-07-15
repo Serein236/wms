@@ -70,7 +70,8 @@ class Logger {
             logMessage += `    详情: ${JSON.stringify(extra)}\n`;
         }
         
-        fs.appendFileSync(logFileName, logMessage, 'utf8');
+        // 异步写入日志文件
+        fs.appendFile(logFileName, logMessage, 'utf8', () => {});
     }
 
     /**

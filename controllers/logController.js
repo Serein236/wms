@@ -4,6 +4,15 @@ const path = require('path');
 const LOGS_DIR = path.join(__dirname, '../logs');
 
 /**
+ * 验证日期参数是否为合法的 YYYY-MM-DD 格式（防止路径穿越）
+ * @param {string} dateStr
+ * @returns {boolean}
+ */
+function isValidDateStr(dateStr) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+}
+
+/**
  * 日志控制器
  * 处理系统日志的查询、筛选和原始内容获取
  * @namespace logController
@@ -189,7 +198,10 @@ async function getLogs(req, res) {
                 logFiles.push(filePath);
             }
         } else {
-            // 具体日期
+            // 具体日期（验证格式防止路径穿越）
+            if (!isValidDateStr(date)) {
+                return res.status(400).json({ success: false, message: '无效的日期格式' });
+            }
             const filePath = path.join(LOGS_DIR, `${date}.log`);
             if (fs.existsSync(filePath)) {
                 logFiles.push(filePath);
@@ -351,6 +363,9 @@ async function getRawLogs(req, res) {
                 }
             }
         } else {
+            if (!isValidDateStr(date)) {
+                return res.status(400).json({ success: false, message: '无效的日期格式' });
+            }
             const filePath = path.join(LOGS_DIR, `${date}.log`);
             if (fs.existsSync(filePath)) {
                 logFiles.push(filePath);

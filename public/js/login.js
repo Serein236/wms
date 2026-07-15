@@ -1,6 +1,9 @@
 async function checkDefaultAdmin() {
             try {
                 const response = await fetch('/api/auth/check-default-admin');
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
                 const data = await response.json();
                 // 如果不是默认密码，隐藏默认账号提示
                 if (!data.isDefault) {
@@ -10,7 +13,7 @@ async function checkDefaultAdmin() {
                     }
                 }
             } catch (error) {
-                console.log('检查默认管理员状态失败');
+                // 忽略检查失败
             }
         }
 
@@ -28,6 +31,10 @@ async function checkDefaultAdmin() {
                     },
                     body: JSON.stringify({ username, password })
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
 
                 const data = await response.json();
 

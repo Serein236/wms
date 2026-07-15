@@ -29,6 +29,9 @@ const defaultSettings = {
 async function checkLogin() {
     try {
         const response = await fetch('/api/auth/current-user');
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
         const data = await response.json();
 
         if (!data.loggedIn) {
@@ -199,37 +202,6 @@ async function loadSettingsFromServer() {
     }
 }
 
-// 数据备份
-async function backupData() {
-    try {
-        const confirmBackup = confirm('确定要备份所有数据吗？这可能需要一些时间。');
-        if (!confirmBackup) return;
-
-        const response = await fetch('/api/backup', {
-            method: 'POST'
-        });
-
-        if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `warehouse_backup_${new Date().toISOString().split('T')[0]}.sql`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-
-            alert('数据备份成功！');
-        } else {
-            alert('数据备份失败，请稍后重试');
-        }
-    } catch (error) {
-        console.error('数据备份失败:', error);
-        alert('数据备份失败: ' + error.message);
-    }
-}
-
 // 数据清理（清理前会自动创建备份）
 async function cleanupData() {
     const confirmCleanup = confirm('警告：这将永久删除所有入库记录、出库记录和库存数据！\n\n确定要继续吗？');
@@ -244,9 +216,13 @@ async function cleanupData() {
             headers: { 'Content-Type': 'application/json' }
         });
 
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
         const result = await response.json();
 
-        if (response.ok && result.success) {
+        if (result.success) {
             alert(`数据清理完成！\n已自动创建备份: ${result.backupFile}`);
             loadBackupList(); // 刷新备份列表
         } else {
@@ -272,6 +248,9 @@ async function logout() {
 async function checkIsAdmin() {
     try {
         const response = await fetch('/api/auth/check-admin');
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
         const data = await response.json();
         if (data.isAdmin) {
             // 显示用户管理选项卡
@@ -291,6 +270,45 @@ document.addEventListener('DOMContentLoaded', function() {
     checkLogin();
     loadBackupList();
     checkIsAdmin();
+
+    // Event delegation for dynamically generated buttons
+    document.addEventListener('click', function(e) {
+        const target = e.target.closest('[data-id]');
+        if (!target) return;
+
+        if (target.classList.contains('btn-edit-user')) {
+            const { id, username, role } = target.dataset;
+            showEditUserModal(parseInt(id), username, role);
+        }
+        if (target.classList.contains('btn-toggle-user')) {
+            const { id, active } = target.dataset;
+            toggleUserStatus(parseInt(id), active === 'true');
+        }
+        if (target.classList.contains('btn-delete-user')) {
+            const { id } = target.dataset;
+            deleteUser(parseInt(id));
+        }
+        if (target.classList.contains('btn-edit-method')) {
+            const { id, type, methodName } = target.dataset;
+            showEditStockMethodModal(parseInt(id), type, methodName);
+        }
+        if (target.classList.contains('btn-delete-method')) {
+            const { id, methodName } = target.dataset;
+            deleteStockMethod(parseInt(id), methodName);
+        }
+        if (target.classList.contains('btn-download-backup')) {
+            const { id } = target.dataset;
+            downloadBackup(parseInt(id));
+        }
+        if (target.classList.contains('btn-restore-backup')) {
+            const { id } = target.dataset;
+            restoreBackup(parseInt(id));
+        }
+        if (target.classList.contains('btn-delete-backup')) {
+            const { id } = target.dataset;
+            deleteBackup(parseInt(id));
+        }
+    });
 });
 
 // 获取设置（供其他页面使用）
@@ -326,6 +344,10 @@ async function changePassword() {
             body: JSON.stringify({ currentPassword, newPassword })
         });
 
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
         const data = await response.json();
 
         if (data.success) {
@@ -346,6 +368,9 @@ async function changePassword() {
 async function loadBackupList() {
     try {
         const response = await fetch('/api/backups');
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
         const backups = await response.json();
 
         const tbody = document.getElementById('backupListBody');
@@ -360,7 +385,6 @@ async function loadBackupList() {
         emptyDiv.classList.add('d-none');
 
         tbody.innerHTML = backups.map(backup => {
-            // 根据备份类型显示不同的标签
             let typeBadge = '';
             switch(backup.backup_type) {
                 case 'auto':
@@ -376,18 +400,18 @@ async function loadBackupList() {
             }
             return `
             <tr>
-                <td>${backup.file_name} ${typeBadge}</td>
+                <td>${escapeHtml(backup.file_name)} ${typeBadge}</td>
                 <td>${backup.file_size} MB</td>
-                <td>${backup.created_by || '-'}</td>
+                <td>${escapeHtml(backup.created_by) || '-'}</td>
                 <td>${new Date(backup.created_at).toLocaleString()}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="downloadBackup(${backup.id})">
+                    <button class="btn btn-sm btn-outline-primary me-1 btn-download-backup" data-id="${backup.id}">
                         <i class="bi bi-download"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-warning me-1" onclick="restoreBackup(${backup.id})">
+                    <button class="btn btn-sm btn-outline-warning me-1 btn-restore-backup" data-id="${backup.id}">
                         <i class="bi bi-arrow-counterclockwise"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteBackup(${backup.id})">
+                    <button class="btn btn-sm btn-outline-danger btn-delete-backup" data-id="${backup.id}">
                         <i class="bi bi-trash"></i>
                     </button>
                 </td>
@@ -414,6 +438,10 @@ async function restoreBackup(id) {
             method: 'POST'
         });
 
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
         const data = await response.json();
 
         if (data.success) {
@@ -437,6 +465,10 @@ async function deleteBackup(id) {
         const response = await fetch(`/api/backups/${id}`, {
             method: 'DELETE'
         });
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
 
         const data = await response.json();
 
@@ -466,6 +498,10 @@ async function saveAutoBackupConfig() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(config)
         });
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
 
         const data = await response.json();
 
@@ -497,6 +533,10 @@ async function backupData() {
             method: 'POST'
         });
 
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
         const data = await response.json();
 
         if (data.success) {
@@ -522,6 +562,9 @@ async function backupData() {
 async function loadUserList() {
     try {
         const response = await fetch('/api/auth/users');
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
         const data = await response.json();
 
         const tbody = document.getElementById('userListBody');
@@ -538,7 +581,7 @@ async function loadUserList() {
         tbody.innerHTML = data.users.map(user => `
             <tr>
                 <td>${user.id}</td>
-                <td>${user.username}</td>
+                <td>${escapeHtml(user.username)}</td>
                 <td>
                     <span class="badge ${user.role === 'admin' ? 'bg-danger' : 'bg-secondary'}">
                         ${user.role === 'admin' ? '管理员' : '普通用户'}
@@ -551,13 +594,13 @@ async function loadUserList() {
                 </td>
                 <td>${new Date(user.created_at).toLocaleString()}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="showEditUserModal(${user.id}, '${user.username}', '${user.role}')">
+                    <button class="btn btn-sm btn-outline-primary me-1 btn-edit-user" data-id="${user.id}" data-username="${escapeHtml(user.username)}" data-role="${escapeHtml(user.role)}">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-sm ${user.is_active ? 'btn-outline-warning' : 'btn-outline-success'} me-1" onclick="toggleUserStatus(${user.id}, ${user.is_active})">
+                    <button class="btn btn-sm ${user.is_active ? 'btn-outline-warning' : 'btn-outline-success'} me-1 btn-toggle-user" data-id="${user.id}" data-active="${user.is_active}">
                         <i class="bi bi-${user.is_active ? 'pause' : 'play'}-circle"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${user.id})">
+                    <button class="btn btn-sm btn-outline-danger btn-delete-user" data-id="${user.id}">
                         <i class="bi bi-trash"></i>
                     </button>
                 </td>
@@ -644,6 +687,10 @@ async function saveUser() {
                 body: JSON.stringify({ username, password, role })
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
             const data = await response.json();
 
             if (data.success) {
@@ -684,6 +731,10 @@ async function saveUser() {
                 body: JSON.stringify({ password: newPassword })
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
             const data = await response.json();
 
             if (data.success) {
@@ -711,6 +762,10 @@ async function deleteUser(id) {
             method: 'DELETE'
         });
 
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
         const data = await response.json();
 
         if (data.success) {
@@ -736,6 +791,10 @@ async function toggleUserStatus(id, currentStatus) {
         const response = await fetch(`/api/auth/users/${id}/toggle`, {
             method: 'POST'
         });
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
 
         const data = await response.json();
 
@@ -815,6 +874,9 @@ async function loadLogs() {
         }
 
         const response = await fetch(`/api/logs?${params.toString()}`);
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
         const data = await response.json();
 
         if (data.success) {
@@ -896,20 +958,20 @@ function displayLogs(logs, pagination) {
         const icon = actionIconMap[log.action] || 'bi-circle';
         return `
         <tr class="align-middle">
-            <td class="font-monospace small text-nowrap">${log.timestamp}</td>
+            <td class="font-monospace small text-nowrap">${escapeHtml(log.timestamp)}</td>
             <td><span class="badge ${levelBadgeClass[log.level] || 'bg-secondary'}">${log.level}</span></td>
             <td>
-                <span class="text-primary fw-bold">${log.operator}</span>
-                ${log.operatorId ? `<span class="text-muted small">(#${log.operatorId})</span>` : ''}
+                <span class="text-primary fw-bold">${escapeHtml(log.operator)}</span>
+                ${log.operatorId ? `<span class="text-muted small">(#${escapeHtml(log.operatorId)})</span>` : ''}
             </td>
             <td>
-                <i class="bi ${icon} me-1"></i>${log.action}
+                <i class="bi ${icon} me-1"></i>${escapeHtml(log.action)}
             </td>
-            <td class="text-truncate" style="max-width: 180px;" title="${log.target || ''}">
-                ${log.target ? `<span class="badge bg-light text-dark border">${log.target}</span>` : '-'}
+            <td class="text-truncate" style="max-width: 180px;" title="${escapeHtml(log.target || '')}">
+                ${log.target ? `<span class="badge bg-light text-dark border">${escapeHtml(log.target)}</span>` : '-'}
             </td>
-            <td class="text-truncate" style="max-width: 200px;" title="${log.description || ''}">
-                ${log.description || '-'}
+            <td class="text-truncate" style="max-width: 200px;" title="${escapeHtml(log.description || '')}">
+                ${escapeHtml(log.description) || '-'}
             </td>
             <td class="text-center">
                 <button class="btn btn-sm btn-outline-info" onclick="showLogDetail(${index})" title="查看详情">
@@ -993,6 +1055,9 @@ async function loadRawLogs() {
 
     try {
         const response = await fetch(`/api/logs/raw?date=${dateFilter}`);
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
         const data = await response.json();
 
         const rawContent = document.getElementById('logRawContent');
@@ -1009,10 +1074,10 @@ function showLogDetail(index) {
     if (!log) return;
 
     document.getElementById('logDetailTime').textContent = log.timestamp;
-    document.getElementById('logDetailLevel').innerHTML = `<span class="badge bg-${log.level === 'INFO' ? 'info' : log.level === 'WARN' ? 'warning text-dark' : 'danger'}">${log.level}</span>`;
-    document.getElementById('logDetailOperator').innerHTML = `${log.operator} ${log.operatorId ? `<span class="text-muted">(ID: ${log.operatorId})</span>` : ''}`;
+    document.getElementById('logDetailLevel').innerHTML = `<span class="badge bg-${log.level === 'INFO' ? 'info' : log.level === 'WARN' ? 'warning text-dark' : 'danger'}">${escapeHtml(log.level)}</span>`;
+    document.getElementById('logDetailOperator').innerHTML = `${escapeHtml(log.operator)} ${log.operatorId ? `<span class="text-muted">(ID: ${escapeHtml(log.operatorId)})</span>` : ''}`;
     document.getElementById('logDetailAction').textContent = log.action;
-    document.getElementById('logDetailTarget').innerHTML = log.target ? `<span class="badge bg-light text-dark border">${log.target}</span>` : '-';
+    document.getElementById('logDetailTarget').innerHTML = log.target ? `<span class="badge bg-light text-dark border">${escapeHtml(log.target)}</span>` : '-';
     document.getElementById('logDetailDescription').textContent = log.description || '-';
     document.getElementById('logDetailExtra').textContent = log.extra ? JSON.stringify(log.extra, null, 2) : '无';
 
@@ -1040,6 +1105,9 @@ let stockMethodModal = null;
 async function loadStockMethodList() {
     try {
         const response = await fetch('/api/stock-methods-admin');
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
         const data = await response.json();
 
         if (!data.success) {
@@ -1064,12 +1132,12 @@ async function loadStockMethodList() {
                         ${method.type === 'in' ? '入库' : '出库'}
                     </span>
                 </td>
-                <td>${method.method_name}</td>
+                <td>${escapeHtml(method.method_name)}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="showEditStockMethodModal(${method.id}, '${method.type}', '${method.method_name}')">
+                    <button class="btn btn-sm btn-outline-primary me-1 btn-edit-method" data-id="${method.id}" data-type="${method.type}" data-method-name="${escapeHtml(method.method_name)}">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteStockMethod(${method.id}, '${method.method_name}')">
+                    <button class="btn btn-sm btn-outline-danger btn-delete-method" data-id="${method.id}" data-method-name="${escapeHtml(method.method_name)}">
                         <i class="bi bi-trash"></i>
                     </button>
                 </td>
@@ -1124,6 +1192,10 @@ async function saveStockMethod() {
             body: JSON.stringify({ type, method_name: methodName })
         });
 
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
         const data = await response.json();
 
         if (data.success) {
@@ -1149,6 +1221,10 @@ async function deleteStockMethod(id, methodName) {
         const response = await fetch(`/api/stock-methods-admin/${id}`, {
             method: 'DELETE'
         });
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
 
         const data = await response.json();
 

@@ -1,3 +1,10 @@
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
 let products = [];
         let editModal = null;
         let detailModal = null;
@@ -5,6 +12,9 @@ let products = [];
         async function checkLogin() {
             try {
                 const response = await fetch('/api/auth/current-user');
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
                 const data = await response.json();
 
                 if (!data.loggedIn) {
@@ -24,6 +34,9 @@ let products = [];
         async function loadProducts() {
             try {
                 const response = await fetch('/api/products');
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
                 products = await response.json();
                 renderProducts();
             } catch (error) {
@@ -39,13 +52,13 @@ let products = [];
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${product.id}</td>
-                    <td>${product.product_code}</td>
-                    <td>${product.name}</td>
-                    <td>${product.spec || '-'}</td>
-                    <td>${product.packing_spec || '-'}</td>
-                    <td>${product.unit || '-'}</td>
+                    <td>${escapeHtml(product.product_code)}</td>
+                    <td>${escapeHtml(product.name)}</td>
+                    <td>${escapeHtml(product.spec) || '-'}</td>
+                    <td>${escapeHtml(product.packing_spec) || '-'}</td>
+                    <td>${escapeHtml(product.unit) || '-'}</td>
                     <td>${product.retail_price ? '¥' + product.retail_price : '-'}</td>
-                    <td>${product.manufacturer || '-'}</td>
+                    <td>${escapeHtml(product.manufacturer) || '-'}</td>
                     <td><span class="badge ${(product.stock || 0) < 10 ? 'bg-danger' : 'bg-success'}">${product.stock || 0}</span></td>
                     <td>
                         <button class="btn btn-sm btn-info btn-action" onclick="viewProductDetails(${product.id})">
@@ -123,6 +136,10 @@ let products = [];
                     body: JSON.stringify(productData)
                 });
 
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+
                 const data = await response.json();
 
                 if (data.success) {
@@ -145,6 +162,10 @@ let products = [];
                 const response = await fetch(`/api/products/${id}`, {
                     method: 'DELETE'
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
 
                 const data = await response.json();
 

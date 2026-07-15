@@ -37,10 +37,26 @@ const inventoryController = {
      */
     async inStock(req, res) {
         const { product_id, stock_method_name, batch_number, production_date, expiration_date, quantity, unit_price, total_amount, source, remark, recorded_date } = req.body;
-        const created_by = req.session.userId; // 从会话中获取当前用户ID
+        const created_by = req.session.userId;
         const username = req.session.username;
         
         try {
+            // 输入校验
+            if (!product_id || !Number.isInteger(Number(product_id)) || Number(product_id) <= 0) {
+                return res.status(400).json({ success: false, message: '无效的商品ID' });
+            }
+            if (!stock_method_name) {
+                return res.status(400).json({ success: false, message: '请选择入库方式' });
+            }
+            if (!batch_number) {
+                return res.status(400).json({ success: false, message: '请输入批次号' });
+            }
+            if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) <= 0) {
+                return res.status(400).json({ success: false, message: '数量必须为正整数' });
+            }
+            if (!recorded_date) {
+                return res.status(400).json({ success: false, message: '请选择记录日期' });
+            }
             const formattedDate = formatDateForMySQL(recorded_date);
             const formattedProductionDate = formatDateForMySQL(production_date);
             const formattedExpirationDate = formatDateForMySQL(expiration_date);
@@ -87,10 +103,26 @@ const inventoryController = {
      */
     async outStock(req, res) {
         const { product_id, stock_method_name, batch_number, quantity, unit_price, total_amount, destination, remark, recorded_date } = req.body;
-        const created_by = req.session.userId; // 从会话中获取当前用户ID
+        const created_by = req.session.userId;
         const username = req.session.username;
         
         try {
+            // 输入校验
+            if (!product_id || !Number.isInteger(Number(product_id)) || Number(product_id) <= 0) {
+                return res.status(400).json({ success: false, message: '无效的商品ID' });
+            }
+            if (!stock_method_name) {
+                return res.status(400).json({ success: false, message: '请选择出库方式' });
+            }
+            if (!batch_number) {
+                return res.status(400).json({ success: false, message: '请输入批次号' });
+            }
+            if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) <= 0) {
+                return res.status(400).json({ success: false, message: '数量必须为正整数' });
+            }
+            if (!recorded_date) {
+                return res.status(400).json({ success: false, message: '请选择记录日期' });
+            }
             const formattedDate = formatDateForMySQL(recorded_date);
             
             // 获取商品名称用于日志记录
@@ -142,7 +174,7 @@ const inventoryController = {
         } catch (error) {
             console.error('获取入库记录错误:', error);
             logger.error('获取入库记录失败', { operator: username, operatorId: userId, error: error.message });
-            res.status(500).json({ error: '获取入库记录失败' });
+            res.status(500).json({ success: false, message: '获取入库记录失败' });
         }
     },
 
@@ -174,7 +206,7 @@ const inventoryController = {
         } catch (error) {
             console.error('获取出库记录错误:', error);
             logger.error('获取出库记录失败', { operator: username, operatorId: userId, error: error.message });
-            res.status(500).json({ error: '获取出库记录失败' });
+            res.status(500).json({ success: false, message: '获取出库记录失败' });
         }
     },
 
@@ -199,7 +231,7 @@ const inventoryController = {
         } catch (error) {
             console.error('获取库存错误:', error);
             logger.error('获取库存失败', { operator: username, operatorId: userId, error: error.message });
-            res.status(500).json({ error: '获取库存失败' });
+            res.status(500).json({ success: false, message: '获取库存失败' });
         }
     },
 
@@ -268,7 +300,7 @@ const inventoryController = {
         } catch (error) {
             console.error('获取出入库方式错误:', error);
             logger.error('获取出入库方式失败', { operator: username, operatorId: userId, type, error: error.message });
-            res.status(500).json({ error: '获取出入库方式失败' });
+            res.status(500).json({ success: false, message: '获取出入库方式失败' });
         }
     },
 
@@ -285,21 +317,41 @@ const inventoryController = {
      * @error {Object} { error: string }
      */
     async getProductBatches(req, res) {
-        const { productId } = req.params;
         const username = req.session?.username;
         const userId = req.session?.userId;
+        const { productId } = req.params;
+        const { query } = req.query;
         
         try {
-            const batches = await dbUtils.query(
-                'SELECT batch_number, batch_current_stock as current_stock FROM batch_stock WHERE product_id = ? ORDER BY batch_number ASC',
-                [productId]
-            );
-            logger.getProductBatches(productId, batches, username, userId);
-            res.json(batches);
+            if (productId) {
+                // 获取指定商品的批次
+                const batches = await dbUtils.query(
+                    'SELECT batch_number, batch_current_stock as current_stock FROM batch_stock WHERE product_id = ? ORDER BY batch_number ASC',
+                    [productId]
+                );
+                logger.getProductBatches(productId, batches, username, userId);
+                res.json(batches);
+            } else {
+                // 获取所有批次（支持查询）
+                let batches = [];
+                if (query && query.length >= 2) {
+                    batches = await dbUtils.query(
+                        'SELECT DISTINCT batch_number FROM in_records WHERE batch_number LIKE ? AND batch_number IS NOT NULL AND batch_number != "" ORDER BY batch_number ASC',
+                        [query + '%']
+                    );
+                } else {
+                    batches = await dbUtils.query(
+                        'SELECT DISTINCT batch_number FROM in_records WHERE batch_number IS NOT NULL AND batch_number != "" ORDER BY batch_number ASC LIMIT 10'
+                    );
+                }
+                
+                logger.query('获取产品批号列表', { query }, username, userId, batches.length);
+                res.json(batches.map(item => ({ batch_number: item.batch_number })));
+            }
         } catch (error) {
-            console.error('获取商品批次错误:', error);
-            logger.error('获取商品批次失败', { operator: username, operatorId: userId, productId, error: error.message });
-            res.status(500).json({ error: '获取商品批次失败' });
+            console.error('获取产品批号列表错误:', error);
+            logger.error('获取产品批号列表失败', { operator: username, operatorId: userId, productId, query, error: error.message });
+            res.status(500).json({ success: false, message: '获取产品批号列表失败' });
         }
     },
 
@@ -320,8 +372,6 @@ const inventoryController = {
         const username = req.session?.username || '未登录用户';
         
         try {
-            console.log('获取出库记录详情，ID:', id);
-            
             // 首先获取出库记录和商品信息
             const record = await dbUtils.queryOne(
                 `SELECT 
@@ -351,11 +401,8 @@ const inventoryController = {
                 [id]
             );
             
-            console.log('查询结果:', record);
-            
             if (record && record.batch_number) {
-                console.log('查询批次信息，产品ID:', record.product_id, '批次号:', record.batch_number);
-                // 然后获取该批次的入库记录（包含生产日期和保质期）
+                // 获取该批次的入库记录（包含生产日期和保质期）
                 const batchRecord = await dbUtils.queryOne(
                     `SELECT 
                         DATE_FORMAT(production_date, '%Y-%m-%d') as production_date,
@@ -368,8 +415,6 @@ const inventoryController = {
                     [record.product_id, record.batch_number]
                 );
                 
-                console.log('批次查询结果:', batchRecord);
-                
                 if (batchRecord) {
                     record.production_date = batchRecord.production_date;
                     record.expiration_date = batchRecord.expiration_date;
@@ -377,11 +422,14 @@ const inventoryController = {
             }
             
             logger.query('查看出库单详情', { recordId: id }, username, req.session?.userId, 1);
+            if (!record) {
+                return res.status(404).json({ success: false, message: '记录不存在' });
+            }
             res.json(record);
         } catch (error) {
             console.error('获取出库记录错误:', error);
             logger.error('获取出库记录失败', { operator: username, operatorId: req.session?.userId, id, error: error.message });
-            res.status(500).json({ error: '获取出库记录失败' });
+            res.status(500).json({ success: false, message: '获取出库记录失败' });
         }
     },
 
@@ -419,7 +467,7 @@ const inventoryController = {
         } catch (error) {
             console.error('获取供应商列表错误:', error);
             logger.error('获取供应商列表失败', { operator: username, operatorId: userId, query, error: error.message });
-            res.status(500).json({ error: '获取供应商列表失败' });
+            res.status(500).json({ success: false, message: '获取供应商列表失败' });
         }
     },
 
@@ -457,7 +505,7 @@ const inventoryController = {
         } catch (error) {
             console.error('获取客户列表错误:', error);
             logger.error('获取客户列表失败', { operator: username, operatorId: userId, query, error: error.message });
-            res.status(500).json({ error: '获取客户列表失败' });
+            res.status(500).json({ success: false, message: '获取客户列表失败' });
         }
     },
 
@@ -496,7 +544,7 @@ const inventoryController = {
         } catch (error) {
             console.error('获取产品批号列表错误:', error);
             logger.error('获取产品批号列表失败', { operator: username, operatorId: userId, productId, query, error: error.message });
-            res.status(500).json({ error: '获取产品批号列表失败' });
+            res.status(500).json({ success: false, message: '获取产品批号列表失败' });
         }
     },
 
@@ -712,7 +760,18 @@ const inventoryController = {
         const userId = req.session?.userId;
         try {
             const settings = req.body;
-            await InventoryService.saveSettings(settings);
+            if (!settings || typeof settings !== 'object') {
+                return res.status(400).json({ success: false, message: '无效的设置数据' });
+            }
+            // 只允许已知的设置键
+            const allowedKeys = ['export', 'autoBackup'];
+            const sanitized = {};
+            for (const key of allowedKeys) {
+                if (settings[key] !== undefined) {
+                    sanitized[key] = settings[key];
+                }
+            }
+            await InventoryService.saveSettings(sanitized);
             logger.settingsUpdated('export', null, settings, username, userId);
             res.json({ success: true });
         } catch (error) {
@@ -856,9 +915,7 @@ const inventoryController = {
         const userId = req.session?.userId;
         try {
             // 先创建删除前备份（pre_delete类型，不受自动备份上限限制）
-            console.log('清理数据前自动创建备份...');
             const backupResult = await InventoryService.createBackup(username, 'pre_delete');
-            console.log('删除前备份创建成功:', backupResult.fileName);
 
             // 执行数据清理
             const result = await InventoryService.clearAllData();

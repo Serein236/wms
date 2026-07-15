@@ -1,3 +1,10 @@
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
 // 格式化时间戳为日期
 function formatDate(timestamp) {
     if (!timestamp) return '-';
@@ -68,15 +75,12 @@ async function checkLogin() {
                     url += `?month=${month}`;
                 }
 
-                console.log('请求URL:', url);
-
                 const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error(`HTTP错误: ${response.status}`);
                 }
 
                 const data = await response.json();
-                console.log('查询结果:', data);
 
                 if (data.success) {
                     renderQueryResult(data);
@@ -107,28 +111,28 @@ async function checkLogin() {
                     <p><strong>商品ID:</strong> ${product.id || '-'}</p>
                 </div>
                 <div class="col-md-2">
-                    <p><strong>商品编码:</strong> ${product.product_code || '-'}</p>
+                    <p><strong>商品编码:</strong> ${escapeHtml(product.product_code) || '-'}</p>
                 </div>
                 <div class="col-md-2">
-                    <p><strong>商品名称:</strong> ${product.name || '-'}</p>
+                    <p><strong>商品名称:</strong> ${escapeHtml(product.name) || '-'}</p>
                 </div>
                 <div class="col-md-2">
-                    <p><strong>规格:</strong> ${product.spec || '-'}</p>
+                    <p><strong>规格:</strong> ${escapeHtml(product.spec) || '-'}</p>
                 </div>
                 <div class="col-md-1">
-                    <p><strong>单位:</strong> ${product.unit || '-'}</p>
+                    <p><strong>单位:</strong> ${escapeHtml(product.unit) || '-'}</p>
                 </div>
                 <div class="col-md-1">
-                    <p><strong>装箱规格:</strong> ${product.packing_spec || '-'}</p>
+                    <p><strong>装箱规格:</strong> ${escapeHtml(product.packing_spec) || '-'}</p>
                 </div>
                 <div class="col-md-1">
                     <p><strong>零售价:</strong> ${product.retail_price ? '¥' + parseFloat(product.retail_price).toFixed(2) : '-'}</p>
                 </div>
                 <div class="col-md-2">
-                    <p><strong>条形码:</strong> ${product.barcode || '-'}</p>
+                    <p><strong>条形码:</strong> ${escapeHtml(product.barcode) || '-'}</p>
                 </div>
                 <div class="col-md-2">
-                    <p><strong>生产厂家:</strong> ${product.manufacturer || '-'}</p>
+                    <p><strong>生产厂家:</strong> ${escapeHtml(product.manufacturer) || '-'}</p>
                 </div>
                 <div class="col-md-1">
                     <p><strong>警告库存:</strong> ${product.warning_quantity || '-'}</p>
@@ -149,7 +153,7 @@ async function checkLogin() {
                     const netChange = stat.in_quantity - stat.out_quantity;
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${stat.month}</td>
+                        <td>${escapeHtml(stat.month)}</td>
                         <td><span class="badge bg-info">${stat.in_quantity}</span></td>
                         <td><span class="badge bg-warning">${stat.out_quantity}</span></td>
                         <td class="fw-bold ${netChange > 0 ? 'text-success' : netChange < 0 ? 'text-danger' : ''}">
@@ -185,11 +189,11 @@ async function checkLogin() {
 
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${batch.batch_number || '-'}</td>
+                        <td>${escapeHtml(batch.batch_number) || '-'}</td>
                         <td>${formatDate(batch.production_date)}</td>
                         <td>${formatDate(batch.expiration_date)}</td>
                         <td><span class="badge ${stockBadgeClass}">${batch.current_stock || 0}</span></td>
-                        <td>${product.unit || '-'}</td>
+                        <td>${escapeHtml(product.unit) || '-'}</td>
                     `;
                     batchStockTable.appendChild(row);
                 });
@@ -211,15 +215,15 @@ async function checkLogin() {
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>${record.recorded_date}</td>
-                        <td><span class="badge bg-primary">${record.stock_method_name || '-'}</span></td>
-                        <td>${record.batch_number || '-'}</td>
+                        <td><span class="badge bg-primary">${escapeHtml(record.stock_method_name) || '-'}</span></td>
+                        <td>${escapeHtml(record.batch_number) || '-'}</td>
                         <td>${formatDate(record.production_date)}</td>
                         <td>${formatDate(record.expiration_date)}</td>
                         <td><span class="badge bg-success">${record.quantity}</span></td>
                         <td>¥${parseFloat(record.unit_price || 0).toFixed(2)}</td>
                         <td>¥${parseFloat(record.total_amount || 0).toFixed(2)}</td>
-                        <td>${record.source || '-'}</td>
-                        <td>${record.remark || '-'}</td>
+                        <td>${escapeHtml(record.source) || '-'}</td>
+                        <td>${escapeHtml(record.remark) || '-'}</td>
                     `;
                     inDetailsTable.appendChild(row);
                 });
@@ -241,15 +245,15 @@ async function checkLogin() {
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>${record.recorded_date}</td>
-                        <td><span class="badge bg-warning">${record.stock_method_name || '-'}</span></td>
-                        <td>${record.batch_number || '-'}</td>
+                        <td><span class="badge bg-warning">${escapeHtml(record.stock_method_name) || '-'}</span></td>
+                        <td>${escapeHtml(record.batch_number) || '-'}</td>
                         <td>${formatDate(record.production_date)}</td>
                         <td>${formatDate(record.expiration_date)}</td>
                         <td><span class="badge bg-danger">${record.quantity}</span></td>
                         <td>¥${parseFloat(record.unit_price || 0).toFixed(2)}</td>
                         <td>¥${parseFloat(record.total_amount || 0).toFixed(2)}</td>
-                        <td>${record.destination || '-'}</td>
-                        <td>${record.remark || '-'}</td>
+                        <td>${escapeHtml(record.destination) || '-'}</td>
+                        <td>${escapeHtml(record.remark) || '-'}</td>
                     `;
                     outDetailsTable.appendChild(row);
                 });

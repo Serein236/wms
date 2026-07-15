@@ -52,29 +52,27 @@ npm install
 
 3. **配置数据库**
 - 复制 `config/databases.example.js` 为 `config/databases.js`
-- 修改数据库连接配置：
+- 修改数据库连接配置（默认 root/root/warehouse）：
 ```javascript
-module.exports = {
+const dbConfig = {
     host: 'localhost',
-    user: 'your_username',
-    password: 'your_password',
-    database: 'warehouse'
+    user: 'root',           // 数据库用户名
+    password: 'root',       // 数据库密码
+    database: 'warehouse',  // 数据库名
+    charset: 'utf8mb4',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 };
 ```
 
 4. **初始化数据库**
-执行 `sql/store.sql` 中的 SQL 脚本创建表结构和初始数据。
+```bash
+# 创建数据库
+mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS warehouse CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-如需更新现有数据库表结构，执行以下 SQL：
-```sql
--- 更新 users 表添加用户管理字段
-ALTER TABLE users 
-    ADD COLUMN role VARCHAR(20) DEFAULT 'user' COMMENT '角色',
-    ADD COLUMN is_active BOOLEAN DEFAULT TRUE COMMENT '是否启用';
-
--- 更新 backups 表添加备份类型字段
-ALTER TABLE backups 
-    ADD COLUMN backup_type VARCHAR(20) DEFAULT 'manual' COMMENT '备份类型';
+# 导入表结构和初始数据
+mysql -u root -proot warehouse < sql/store.sql
 ```
 
 5. **启动服务**

@@ -2,16 +2,17 @@
 const dbUtils = require('../utils/dbUtils');
 
 const InRecordModel = {
-    async create(recordData) {
+    async create(recordData, connection = null) {
         const { product_id, stock_method_name, batch_number, production_date, expiration_date, quantity, unit_price, total_amount, source, remark, recorded_date, created_by } = recordData;
         const result = await dbUtils.insert(
             'INSERT INTO in_records (product_id, stock_method_name, batch_number, production_date, expiration_date, quantity, unit_price, total_amount, source, remark, recorded_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [product_id, stock_method_name, batch_number, production_date, expiration_date, quantity, unit_price, total_amount, source, remark, recorded_date, created_by]
+            [product_id, stock_method_name, batch_number, production_date, expiration_date, quantity, unit_price, total_amount, source, remark, recorded_date, created_by],
+            connection
         );
         return { id: result.insertId, ...recordData };
     },
 
-    async findAll(month = null, productId = null) {
+    async findAll(month = null, productId = null, connection = null) {
         let whereCondition = '';
         const params = [];
         
@@ -39,10 +40,10 @@ const InRecordModel = {
             JOIN products p ON i.product_id = p.id 
             ${whereCondition}
             ORDER BY i.recorded_date DESC, i.created_at DESC
-        `, params);
+        `, params, connection);
     },
 
-    async findByProductId(productId, month = null) {
+    async findByProductId(productId, month = null, connection = null) {
         let whereCondition = 'WHERE product_id = ?';
         const params = [productId];
         
@@ -54,34 +55,38 @@ const InRecordModel = {
         return await dbUtils.query(
             `SELECT *, DATE_FORMAT(recorded_date, '%Y-%m-%d') as display_date, DATE_FORMAT(created_at, '%Y-%m-%d') as created_at 
              FROM in_records ${whereCondition} ORDER BY recorded_date DESC`,
-            params
+            params,
+            connection
         );
     },
 
-    async getMonthlyStats(productId, month) {
+    async getMonthlyStats(productId, month, connection = null) {
         return await dbUtils.queryOne(
             `SELECT SUM(quantity) as total_in 
              FROM in_records 
              WHERE product_id = ? AND DATE_FORMAT(recorded_date, "%Y-%m") = ?`,
-            [productId, month]
+            [productId, month],
+            connection
         );
     },
 
-    async findById(id) {
+    async findById(id, connection = null) {
         return await dbUtils.queryOne(
             'SELECT * FROM in_records WHERE id = ?',
-            [id]
+            [id],
+            connection
         );
     },
 
-    async delete(id) {
+    async delete(id, connection = null) {
         return await dbUtils.delete(
             'DELETE FROM in_records WHERE id = ?',
-            [id]
+            [id],
+            connection
         );
     },
 
-    async update(id, data) {
+    async update(id, data, connection = null) {
         const { product_id, stock_method_name, batch_number, production_date, expiration_date, quantity, unit_price, total_amount, source, remark, recorded_date } = data;
         
         const updateFields = [];
@@ -140,7 +145,8 @@ const InRecordModel = {
         
         return await dbUtils.update(
             `UPDATE in_records SET ${updateFields.join(', ')} WHERE id = ?`,
-            updateValues
+            updateValues,
+            connection
         );
     }
 };

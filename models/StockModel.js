@@ -2,7 +2,7 @@
 const dbUtils = require('../utils/dbUtils');
 
 const StockModel = {
-    async findAll() {
+    async findAll(connection = null) {
         return await dbUtils.query(`
             SELECT 
                 p.id, p.name, p.spec, p.unit, p.retail_price,
@@ -14,17 +14,18 @@ const StockModel = {
                 products p ON s.product_id = p.id
             ORDER BY 
                 s.stock_status ASC, p.name ASC
-        `);
+        `, [], connection);
     },
 
-    async findByProductId(productId) {
+    async findByProductId(productId, connection = null) {
         return await dbUtils.queryOne(
             `SELECT * FROM stock_inventory WHERE product_id = ?`,
-            [productId]
+            [productId],
+            connection
         );
     },
 
-    async updateStock(productId, inQuantity = 0, outQuantity = 0) {
+    async updateStock(productId, inQuantity = 0, outQuantity = 0, connection = null) {
         // 更新库存数量
         await dbUtils.update(
             `UPDATE stock_inventory 
@@ -40,12 +41,13 @@ const StockModel = {
                  END
              WHERE 
                  product_id = ?`,
-            [inQuantity, outQuantity, inQuantity, outQuantity, inQuantity, outQuantity, inQuantity, outQuantity, inQuantity, outQuantity, productId]
+            [inQuantity, outQuantity, inQuantity, outQuantity, inQuantity, outQuantity, inQuantity, outQuantity, inQuantity, outQuantity, productId],
+            connection
         );
         return true;
     },
 
-    async updateStockStatus(productId) {
+    async updateStockStatus(productId, connection = null) {
         // 更新库存状态
         await dbUtils.update(
             `UPDATE stock_inventory 
@@ -58,12 +60,13 @@ const StockModel = {
                  END
              WHERE 
                  product_id = ?`,
-            [productId]
+            [productId],
+            connection
         );
         return true;
     },
 
-    async getLowStockProducts() {
+    async getLowStockProducts(connection = null) {
         return await dbUtils.query(`
             SELECT 
                 p.id, p.name, p.spec, p.unit, p.retail_price,
@@ -76,10 +79,10 @@ const StockModel = {
                 s.stock_status IN ('danger', 'out_of_stock')
             ORDER BY 
                 s.stock_status ASC, s.current_stock ASC
-        `);
+        `, [], connection);
     },
 
-    async getBatchStockReport() {
+    async getBatchStockReport(connection = null) {
         return await dbUtils.query(`
             SELECT 
                 p.id as product_id,
@@ -123,7 +126,7 @@ const StockModel = {
                 b.id
             ORDER BY 
                 p.name ASC, b.batch_number ASC
-        `);
+        `, [], connection);
     }
 };
 

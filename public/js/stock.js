@@ -1,3 +1,10 @@
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
 async function checkLogin() {
             try {
                 const response = await fetch('/api/auth/current-user');
@@ -34,7 +41,6 @@ async function checkLogin() {
                 }
 
                 const stockData = await response.json();
-                console.log('库存数据:', stockData);
 
                 if (loadingRow) {
                     loadingRow.style.display = 'none';
@@ -121,10 +127,10 @@ async function checkLogin() {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${item.product_id || '-'}</td>
-                    <td>${item.product_name || '-'}</td>
-                    <td>${item.product_spec || '-'}</td>
-                    <td>${item.product_unit || '-'}</td>
-                    <td>${item.batch_number || '-'}</td>
+                    <td>${escapeHtml(item.product_name) || '-'}</td>
+                    <td>${escapeHtml(item.product_spec) || '-'}</td>
+                    <td>${escapeHtml(item.product_unit) || '-'}</td>
+                    <td>${escapeHtml(item.batch_number) || '-'}</td>
                     <td><span class="badge bg-info">${totalIn}</span></td>
                     <td><span class="badge bg-warning">${totalOut}</span></td>
                     <td>

@@ -1,6 +1,9 @@
 async function checkLogin() {
             try {
                 const response = await fetch('/api/auth/current-user');
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
                 const data = await response.json();
 
                 if (!data.loggedIn) {
@@ -38,13 +41,15 @@ async function checkLogin() {
                     body: JSON.stringify(productData)
                 });
 
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+
                 const data = await response.json();
 
                 if (data.success) {
                     alert('商品添加成功');
                     document.getElementById('addProductForm').reset();
-                    // 重新生成商品编码
-                    document.getElementById('productCode').value = Math.floor(100000 + Math.random() * 900000).toString();
                 } else {
                     alert('添加失败: ' + data.message);
                 }

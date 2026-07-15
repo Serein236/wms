@@ -32,7 +32,7 @@ const productController = {
         } catch (error) {
             console.error('获取商品错误:', error);
             logger.error('获取商品失败', { operator: username, operatorId: userId, error: error.message });
-            res.status(500).json({ error: '获取商品失败' });
+            res.status(500).json({ success: false, message: '获取商品失败' });
         }
     },
 
@@ -129,7 +129,7 @@ const productController = {
             // 检查条形码是否已被其他商品使用
             if (barcode) {
                 const existingProductByBarcode = await ProductModel.findByBarcode(barcode);
-                if (existingProductByBarcode && existingProductByBarcode.id != id) {
+                if (existingProductByBarcode && existingProductByBarcode.id !== Number(id)) {
                     return res.status(400).json({ 
                         success: false, 
                         message: '条形码已存在' 

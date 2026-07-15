@@ -1,3 +1,16 @@
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
+function formatMoney(val) {
+    if (val == null || val === '') return '0.00';
+    const n = parseFloat(val);
+    return isNaN(n) ? '0.00' : n.toFixed(2);
+}
+
 // 格式化时间戳为日期
 function formatDate(timestamp) {
     if (!timestamp) return '-';
@@ -51,17 +64,17 @@ async function loadInRecords() {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${record.id}</td>
-                <td>${record.product_name}</td>
-                <td>${record.stock_method_name || '-'}</td>
-                <td>${record.batch_number || '-'}</td>
+                <td>${escapeHtml(record.product_name)}</td>
+                <td>${escapeHtml(record.stock_method_name) || '-'}</td>
+                <td>${escapeHtml(record.batch_number) || '-'}</td>
                 <td>${formatDate(record.production_date)}</td>
                 <td>${formatDate(record.expiration_date)}</td>
                 <td>${record.quantity}</td>
-                <td>¥${parseFloat(record.unit_price).toFixed(2)}</td>
-                <td>¥${parseFloat(record.total_amount).toFixed(2)}</td>
-                <td>${record.source || '-'}</td>
+                <td>¥${formatMoney(record.unit_price)}</td>
+                <td>¥${formatMoney(record.total_amount)}</td>
+                <td>${escapeHtml(record.source) || '-'}</td>
                 <td>${record.display_date || '-'}</td>
-                <td>${record.remark || '-'}</td>
+                <td>${escapeHtml(record.remark) || '-'}</td>
                 <td>${formatDate(record.created_at)}</td>
                 <td>
                     <button class="btn btn-sm btn-warning btn-action" onclick="editInRecord(${record.id})">
@@ -115,7 +128,11 @@ async function cancelInRecord(id) {
                 'Content-Type': 'application/json'
             }
         });
-        
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
         const data = await response.json();
         
         if (data.success) {
@@ -177,6 +194,9 @@ async function editInRecord(id) {
 async function loadEditStockMethods(selectedMethod) {
     try {
         const response = await fetch('/api/stock-methods?type=in');
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
         const methods = await response.json();
         const select = document.getElementById('edit_stock_method_name');
         select.innerHTML = '<option value="">请选择入库方式</option>';
@@ -226,7 +246,11 @@ async function saveEditInRecord() {
             },
             body: JSON.stringify(updateData)
         });
-        
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
         const data = await response.json();
         
         if (data.success) {

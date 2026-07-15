@@ -191,6 +191,10 @@ const authController = {
             return res.status(400).json({ success: false, message: '密码至少需要6位' });
         }
 
+        if (!['admin', 'user'].includes(role)) {
+            return res.status(400).json({ success: false, message: '角色必须是 admin 或 user' });
+        }
+
         try {
             // 检查用户名是否已存在
             const existingUser = await UserModel.findByUsername(username);
@@ -237,6 +241,10 @@ const authController = {
     async updateUser(req, res) {
         const { id } = req.params;
         const { username, role, password } = req.body;
+
+        if (role !== undefined && !['admin', 'user'].includes(role)) {
+            return res.status(400).json({ success: false, message: '角色必须是 admin 或 user' });
+        }
 
         try {
             // 检查用户是否存在

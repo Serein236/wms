@@ -18,7 +18,6 @@ const ProductModel = {
             LEFT JOIN stock_inventory s ON p.id = s.product_id
             WHERE p.id = ?
         `, [id]);
-        console.log('findById结果:', result);
         return result;
     },
 

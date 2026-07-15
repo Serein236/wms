@@ -1,3 +1,16 @@
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
+function formatMoney(val) {
+    if (val == null || val === '') return '0.00';
+    const n = parseFloat(val);
+    return isNaN(n) ? '0.00' : n.toFixed(2);
+}
+
 // 从设置中获取公司名称
 function getCompanyName() {
     const settings = localStorage.getItem('warehouse_settings');
@@ -132,15 +145,15 @@ async function loadOutRecords() {
             row.innerHTML = `
                 <td><input type="checkbox" class="record-checkbox" data-id="${record.id}"></td>
                 <td>${record.id}</td>
-                <td>${record.product_name}</td>
-                <td>${record.stock_method_name || '-'}</td>
-                <td>${record.batch_number || '-'}</td>
+                <td>${escapeHtml(record.product_name)}</td>
+                <td>${escapeHtml(record.stock_method_name) || '-'}</td>
+                <td>${escapeHtml(record.batch_number) || '-'}</td>
                 <td>${record.quantity}</td>
-                <td>¥${parseFloat(record.unit_price).toFixed(2)}</td>
-                <td>¥${parseFloat(record.total_amount).toFixed(2)}</td>
-                <td>${record.destination || '-'}</td>
+                <td>¥${formatMoney(record.unit_price)}</td>
+                <td>¥${formatMoney(record.total_amount)}</td>
+                <td>${escapeHtml(record.destination) || '-'}</td>
                 <td>${record.display_date || '-'}</td>
-                <td>${record.remark || '-'}</td>
+                <td>${escapeHtml(record.remark) || '-'}</td>
                 <td>${formatDate(record.created_at)}</td>
                 <td>
                     <button class="btn btn-sm btn-info btn-action" onclick="viewOutOrder(${record.id})">
@@ -232,7 +245,6 @@ async function viewOutOrder(recordId) {
             throw new Error('获取出库记录失败');
         }
         const record = await response.json();
-        console.log('后端返回的出库记录数据:', record);
         
         // 生成出库单单号
         const orderNumber = generateOrderNumber(record);
@@ -242,19 +254,9 @@ async function viewOutOrder(recordId) {
         const spec = record.spec !== undefined ? record.spec : '-';
         const unit = record.unit !== undefined ? record.unit : '-';
         const manufacturer = record.manufacturer !== undefined ? record.manufacturer : '-';
-        const retailPrice = record.retail_price !== undefined ? '¥' + parseFloat(record.retail_price).toFixed(2) : '-';
+        const retailPrice = record.retail_price !== undefined ? '¥' + formatMoney(record.retail_price) : '-';
         const productionDate = record.production_date !== undefined ? record.production_date : '-';
         const expirationDate = record.expiration_date !== undefined ? record.expiration_date : '-';
-        
-        console.log('处理后的数据:', {
-            productCode,
-            spec,
-            unit,
-            manufacturer,
-            retailPrice,
-            productionDate,
-            expirationDate
-        });
         
         // 生成出库单HTML
         let orderHtml = `
@@ -272,14 +274,14 @@ async function viewOutOrder(recordId) {
                 <div class="row mb-4">
                     <div class="col">
                         <p><strong>开单日期：</strong> ${record.display_date || '-'}</p>
-                        <p><strong>收货人：</strong> ${record.remark || '-'}</p>
+                        <p><strong>收货人：</strong> ${escapeHtml(record.remark) || '-'}</p>
                     </div>
                     <div class="col">
-                        <p><strong>客户名称：</strong> ${record.destination || '-'}</p>
+                        <p><strong>客户名称：</strong> ${escapeHtml(record.destination) || '-'}</p>
                         <p><strong>收货地址：</strong> -</p>
                     </div>
                     <div class="col">
-                        <p><strong>生产厂家：</strong> ${manufacturer}</p>
+                        <p><strong>生产厂家：</strong> ${escapeHtml(manufacturer)}</p>
                         <p><strong>收货联系电话：</strong> -</p>
                     </div>
                 </div>
@@ -304,24 +306,24 @@ async function viewOutOrder(recordId) {
                     <tbody>
                         <tr>
                             <td>1</td>
-                            <td>${productCode}</td>
-                            <td>${record.product_name}</td>
-                            <td>${spec}</td>
-                            <td>${unit}</td>
+                            <td>${escapeHtml(productCode)}</td>
+                            <td>${escapeHtml(record.product_name)}</td>
+                            <td>${escapeHtml(spec)}</td>
+                            <td>${escapeHtml(unit)}</td>
                             <td>${record.quantity}</td>
-                            <td>${parseFloat(record.unit_price).toFixed(2)}</td>
-                            <td>${parseFloat(record.total_amount).toFixed(2)}</td>
-                            <td>${record.batch_number || '-'}</td>
+                            <td>${formatMoney(record.unit_price)}</td>
+                            <td>${formatMoney(record.total_amount)}</td>
+                            <td>${escapeHtml(record.batch_number) || '-'}</td>
                             <td>${productionDate}</td>
                             <td>${expirationDate}</td>
                             <td>${retailPrice}</td>
-                            <td>${record.remark || '-'}</td>
+                            <td>${escapeHtml(record.remark) || '-'}</td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="row mt-4">
                     <div class="col">
-                        <p><strong>合计金额人民币（小写）：</strong> ${parseFloat(record.total_amount).toFixed(2)}</p>
+                        <p><strong>合计金额人民币（小写）：</strong> ${formatMoney(record.total_amount)}</p>
                         <p><strong>合计金额人民币（大写）：</strong> ${numToChinese(parseFloat(record.total_amount))}</p>
                     </div>
                 </div>
@@ -343,9 +345,6 @@ async function viewOutOrder(recordId) {
                 </div>
             </div>
         `;
-        
-        // 直接在页面中显示出库单内容（用于调试）
-        console.log('生成的HTML:', orderHtml.substring(0, 500) + '...');
         
         // 创建模态框
         const modal = document.createElement('div');
@@ -504,7 +503,7 @@ async function exportOutOrder(recordId) {
         const spec = record.spec || '-';
         const unit = record.unit || '-';
         const manufacturer = record.manufacturer || '-';
-        const retailPrice = record.retail_price ? parseFloat(record.retail_price).toFixed(2) : '-';
+        const retailPrice = record.retail_price ? formatMoney(record.retail_price) : '-';
         const productionDate = record.production_date || '-';
         const expirationDate = record.expiration_date || '-';
         
@@ -522,7 +521,7 @@ async function exportOutOrder(recordId) {
         const formattedRetailPrice = retailPrice !== '-' ? parseFloat(retailPrice).toFixed(2) : '-';
         
         // 生成CSV内容（按照第一个图片的格式）
-        let csvContent = `data:text/csv;charset=utf-8,\uFEFF,,${getCompanyName()}销售出库单,,,,,,\n\n,,,,单号：${orderNumber},转入单号：,,\n开单日期：,${formattedDate},客户名称：,${record.destination || '-'},生产厂家：,${manufacturer},,,\n收货人：,${consignee},收货地址：,${consigneeAddress},收货联系电话：,${consigneePhone},,,\n\n序号,产品编码,品牌,品名,产品规格,单位,数量,单价,金额/元,产品批号,生产日期,有效期,零售价,备注\n1,${productCode},,${record.product_name},${spec},${unit},${record.quantity},${parseFloat(record.unit_price).toFixed(2)},${parseFloat(record.total_amount).toFixed(2)},${record.batch_number || '-'},${formattedProductionDate},${formattedExpirationDate},${formattedRetailPrice},${record.remark || '-'}\n\n合计金额人民币（小写）：,,,,,,,,${parseFloat(record.total_amount).toFixed(2)},共 1 件,,\n合计金额人民币（大写）：,,,,,,,,${numToChinese(parseFloat(record.total_amount))},,,\n\n制单人：,,审核人：,,销售负责人：,,客户收货人：,,\n\n（一式四联：白色存根联 黄色回单联 红色客户联为财务对账联）,,,,,,\n注意事项：客户签收表示购销双方权利义务已确认，货品如有差错，请三天内来电说明（与销售负责人联系），每次发货同行的厂检请保存好,,,,,,`;
+        let csvContent = `data:text/csv;charset=utf-8,\uFEFF,,${getCompanyName()}销售出库单,,,,,,\n\n,,,,单号：${orderNumber},转入单号：,,\n开单日期：,${formattedDate},客户名称：,${record.destination || '-'},生产厂家：,${manufacturer},,,\n收货人：,${consignee},收货地址：,${consigneeAddress},收货联系电话：,${consigneePhone},,,\n\n序号,产品编码,品牌,品名,产品规格,单位,数量,单价,金额/元,产品批号,生产日期,有效期,零售价,备注\n1,${productCode},,${record.product_name},${spec},${unit},${record.quantity},${formatMoney(record.unit_price)},${formatMoney(record.total_amount)},${record.batch_number || '-'},${formattedProductionDate},${formattedExpirationDate},${formattedRetailPrice},${record.remark || '-'}\n\n合计金额人民币（小写）：,,,,,,,,${formatMoney(record.total_amount)},共 1 件,,\n合计金额人民币（大写）：,,,,,,,,${numToChinese(parseFloat(record.total_amount))},,,\n\n制单人：,,审核人：,,销售负责人：,,客户收货人：,,\n\n（一式四联：白色存根联 黄色回单联 红色客户联为财务对账联）,,,,,,\n注意事项：客户签收表示购销双方权利义务已确认，货品如有差错，请三天内来电说明（与销售负责人联系），每次发货同行的厂检请保存好,,,,,,`;
         
         try {
             // 使用ExcelJS导出
@@ -597,7 +596,7 @@ async function exportOutOrder(recordId) {
                 // 数据行（第8行）
                 const dataRow = worksheet.addRow([
                     1, productCode, record.product_name, spec, unit, record.quantity, 
-                    parseFloat(record.unit_price).toFixed(2), parseFloat(record.total_amount).toFixed(2), 
+                    formatMoney(record.unit_price), formatMoney(record.total_amount), 
                     record.batch_number || '-', formattedProductionDate, formattedExpirationDate, 
                     formattedRetailPrice, record.remark || '-'
                 ]);
@@ -616,7 +615,7 @@ async function exportOutOrder(recordId) {
                 worksheet.addRow([]);
                 
                 // 合计行（第10行）
-                const totalRow1 = worksheet.addRow(['合计金额人民币（小写）：', '', '', '', '', '', '', '', parseFloat(record.total_amount).toFixed(2), '', '', '共 1 件', '']);
+                const totalRow1 = worksheet.addRow(['合计金额人民币（小写）：', '', '', '', '', '', '', '', formatMoney(record.total_amount), '', '', '共 1 件', '']);
                 worksheet.mergeCells('A10:H10');
                 worksheet.mergeCells('J10:K10');
                 totalRow1.getCell('A').font = { name: '宋体', size: 11, bold: true };
@@ -753,10 +752,10 @@ async function batchViewOutOrder() {
                 <div class="row mb-4">
                     <div class="col">
                         <p><strong>开单日期：</strong> ${firstRecord.display_date || '-'}</p>
-                        <p><strong>收货人：</strong> ${firstRecord.remark || '-'}</p>
+                        <p><strong>收货人：</strong> ${escapeHtml(firstRecord.remark) || '-'}</p>
                     </div>
                     <div class="col">
-                        <p><strong>客户名称：</strong> ${firstRecord.destination || '-'}</p>
+                        <p><strong>客户名称：</strong> ${escapeHtml(firstRecord.destination) || '-'}</p>
                         <p><strong>收货地址：</strong> -</p>
                     </div>
                     <div class="col">
@@ -789,23 +788,23 @@ async function batchViewOutOrder() {
                             const unit = record.unit !== undefined ? record.unit : '-';
                             const productionDate = record.production_date !== undefined ? record.production_date : '-';
                             const expirationDate = record.expiration_date !== undefined ? record.expiration_date : '-';
-                            const retailPrice = record.retail_price !== undefined ? '¥' + parseFloat(record.retail_price).toFixed(2) : '-';
+                            const retailPrice = record.retail_price !== undefined ? '¥' + formatMoney(record.retail_price) : '-';
                             
                             return `
                                 <tr>
                                     <td>${index + 1}</td>
-                                    <td>${productCode}</td>
-                                    <td>${record.product_name}</td>
-                                    <td>${spec}</td>
-                                    <td>${unit}</td>
+                                    <td>${escapeHtml(productCode)}</td>
+                                    <td>${escapeHtml(record.product_name)}</td>
+                                    <td>${escapeHtml(spec)}</td>
+                                    <td>${escapeHtml(unit)}</td>
                                     <td>${record.quantity}</td>
-                                    <td>${parseFloat(record.unit_price).toFixed(2)}</td>
-                                    <td>${parseFloat(record.total_amount).toFixed(2)}</td>
-                                    <td>${record.batch_number || '-'}</td>
+                                    <td>${formatMoney(record.unit_price)}</td>
+                                    <td>${formatMoney(record.total_amount)}</td>
+                                    <td>${escapeHtml(record.batch_number) || '-'}</td>
                                     <td>${productionDate}</td>
                                     <td>${expirationDate}</td>
                                     <td>${retailPrice}</td>
-                                    <td>${record.remark || '-'}</td>
+                                    <td>${escapeHtml(record.remark) || '-'}</td>
                                 </tr>
                             `;
                         }).join('')}
@@ -1023,9 +1022,9 @@ async function confirmBatchExport() {
             const unit = record.unit || '-';
             const productionDate = record.production_date ? formatDate(record.production_date) : '-';
             const expirationDate = record.expiration_date ? formatDate(record.expiration_date) : '-';
-            const retailPrice = record.retail_price ? parseFloat(record.retail_price).toFixed(2) : '-';
+            const retailPrice = record.retail_price ? formatMoney(record.retail_price) : '-';
             
-            csvContent += `${index + 1},${productCode},,${record.product_name},${spec},${unit},${record.quantity},${parseFloat(record.unit_price).toFixed(2)},${parseFloat(record.total_amount).toFixed(2)},${record.batch_number || '-'},${productionDate},${expirationDate},${retailPrice},${record.remark || '-'}\n`;
+            csvContent += `${index + 1},${productCode},,${record.product_name},${spec},${unit},${record.quantity},${formatMoney(record.unit_price)},${formatMoney(record.total_amount)},${record.batch_number || '-'},${productionDate},${expirationDate},${retailPrice},${record.remark || '-'}\n`;
         });
         
         csvContent += `\n合计金额人民币（小写）：,,,,,,,,${totalAmount.toFixed(2)},共 ${records.length} 件,,\n合计金额人民币（大写）：,,,,,,,,${numToChinese(totalAmount)},,,\n\n制单人：,,审核人：,,销售负责人：,,客户收货人：,,\n\n（一式四联：白色存根联 黄色回单联 红色客户联为财务对账联）,,,,,,\n注意事项：客户签收表示购销双方权利义务已确认，货品如有差错，请三天内来电说明（与销售负责人联系），每次发货同行的厂检请保存好,,,,,,`;
@@ -1107,7 +1106,7 @@ async function confirmBatchExport() {
                     const unit = record.unit || '-';
                     const productionDate = record.production_date ? formatDate(record.production_date) : '-';
                     const expirationDate = record.expiration_date ? formatDate(record.expiration_date) : '-';
-                    const retailPrice = record.retail_price ? parseFloat(record.retail_price).toFixed(2) : '-';
+                    const retailPrice = record.retail_price ? formatMoney(record.retail_price) : '-';
                     
                     const dataRow = worksheet.addRow([
                         index + 1,
@@ -1116,8 +1115,8 @@ async function confirmBatchExport() {
                         spec,
                         unit,
                         record.quantity,
-                        parseFloat(record.unit_price).toFixed(2),
-                        parseFloat(record.total_amount).toFixed(2),
+                        formatMoney(record.unit_price),
+                        formatMoney(record.total_amount),
                         record.batch_number || '-',
                         productionDate,
                         expirationDate,
@@ -1214,9 +1213,9 @@ async function confirmBatchExport() {
                     const unit = record.unit || '-';
                     const productionDate = record.production_date ? formatDate(record.production_date) : '-';
                     const expirationDate = record.expiration_date ? formatDate(record.expiration_date) : '-';
-                    const retailPrice = record.retail_price ? parseFloat(record.retail_price).toFixed(2) : '-';
+                    const retailPrice = record.retail_price ? formatMoney(record.retail_price) : '-';
                     
-                    csvContent += `${index + 1},${productCode},,${record.product_name},${spec},${unit},${record.quantity},${parseFloat(record.unit_price).toFixed(2)},${parseFloat(record.total_amount).toFixed(2)},${record.batch_number || '-'},${productionDate},${expirationDate},${retailPrice},${record.remark || '-'}\n`;
+                    csvContent += `${index + 1},${productCode},,${record.product_name},${spec},${unit},${record.quantity},${formatMoney(record.unit_price)},${formatMoney(record.total_amount)},${record.batch_number || '-'},${productionDate},${expirationDate},${retailPrice},${record.remark || '-'}\n`;
                 });
                 
                 // 添加合计行
@@ -1253,9 +1252,9 @@ async function confirmBatchExport() {
                 const unit = record.unit || '-';
                 const productionDate = record.production_date ? formatDate(record.production_date) : '-';
                 const expirationDate = record.expiration_date ? formatDate(record.expiration_date) : '-';
-                const retailPrice = record.retail_price ? parseFloat(record.retail_price).toFixed(2) : '-';
+                const retailPrice = record.retail_price ? formatMoney(record.retail_price) : '-';
                 
-                csvContent += `${index + 1},${productCode},,${record.product_name},${spec},${unit},${record.quantity},${parseFloat(record.unit_price).toFixed(2)},${parseFloat(record.total_amount).toFixed(2)},${record.batch_number || '-'},${productionDate},${expirationDate},${retailPrice},${record.remark || '-'}\n`;
+                csvContent += `${index + 1},${productCode},,${record.product_name},${spec},${unit},${record.quantity},${formatMoney(record.unit_price)},${formatMoney(record.total_amount)},${record.batch_number || '-'},${productionDate},${expirationDate},${retailPrice},${record.remark || '-'}\n`;
             });
             
             // 添加合计行
@@ -1293,7 +1292,11 @@ async function cancelOutRecord(id) {
                 'Content-Type': 'application/json'
             }
         });
-        
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
         const data = await response.json();
         
         if (data.success) {
@@ -1353,6 +1356,9 @@ async function editOutRecord(id) {
 async function loadEditOutStockMethods(selectedMethod) {
     try {
         const response = await fetch('/api/stock-methods?type=out');
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
         const methods = await response.json();
         const select = document.getElementById('edit_out_stock_method_name');
         select.innerHTML = '<option value="">请选择出库方式</option>';
@@ -1399,7 +1405,11 @@ async function saveEditOutRecord() {
             },
             body: JSON.stringify(updateData)
         });
-        
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
         const data = await response.json();
         
         if (data.success) {

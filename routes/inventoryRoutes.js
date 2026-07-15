@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const inventoryController = require('../controllers/inventoryController');
-const { requireAdmin } = require('../middleware/auth');
+const { requireLogin, requireAdmin } = require('../middleware/auth');
+
+router.use(requireLogin);
 
 /**
  * @swagger

@@ -7,14 +7,10 @@ const dbUtils = {
      * @param {Array} params 参数数组
      * @returns {Promise<Array>} 查询结果
      */
-    async query(sql, params = []) {
-        try {
-            const [rows] = await promisePool.query(sql, params);
-            return rows;
-        } catch (error) {
-            console.error('数据库查询错误:', error);
-            throw error;
-        }
+    async query(sql, params = [], connection = null) {
+        const executor = connection || promisePool;
+        const [rows] = await executor.query(sql, params);
+        return rows;
     },
 
     /**
@@ -23,14 +19,10 @@ const dbUtils = {
      * @param {Array} params 参数数组
      * @returns {Promise<Object|null>} 单行结果
      */
-    async queryOne(sql, params = []) {
-        try {
-            const [rows] = await promisePool.query(sql, params);
-            return rows[0] || null;
-        } catch (error) {
-            console.error('数据库查询错误:', error);
-            throw error;
-        }
+    async queryOne(sql, params = [], connection = null) {
+        const executor = connection || promisePool;
+        const [rows] = await executor.query(sql, params);
+        return rows[0] || null;
     },
 
     /**
@@ -39,14 +31,10 @@ const dbUtils = {
      * @param {Array} params 参数数组
      * @returns {Promise<Object>} 插入结果
      */
-    async insert(sql, params = []) {
-        try {
-            const [result] = await promisePool.query(sql, params);
-            return result;
-        } catch (error) {
-            console.error('数据库插入错误:', error);
-            throw error;
-        }
+    async insert(sql, params = [], connection = null) {
+        const executor = connection || promisePool;
+        const [result] = await executor.query(sql, params);
+        return result;
     },
 
     /**
@@ -55,14 +43,10 @@ const dbUtils = {
      * @param {Array} params 参数数组
      * @returns {Promise<Object>} 更新结果
      */
-    async update(sql, params = []) {
-        try {
-            const [result] = await promisePool.query(sql, params);
-            return result;
-        } catch (error) {
-            console.error('数据库更新错误:', error);
-            throw error;
-        }
+    async update(sql, params = [], connection = null) {
+        const executor = connection || promisePool;
+        const [result] = await executor.query(sql, params);
+        return result;
     },
 
     /**
@@ -71,14 +55,10 @@ const dbUtils = {
      * @param {Array} params 参数数组
      * @returns {Promise<Object>} 删除结果
      */
-    async delete(sql, params = []) {
-        try {
-            const [result] = await promisePool.query(sql, params);
-            return result;
-        } catch (error) {
-            console.error('数据库删除错误:', error);
-            throw error;
-        }
+    async delete(sql, params = [], connection = null) {
+        const executor = connection || promisePool;
+        const [result] = await executor.query(sql, params);
+        return result;
     },
 
     /**

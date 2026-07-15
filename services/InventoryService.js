@@ -25,30 +25,33 @@ const InventoryService = {
     async inStock(data) {
         return await dbUtils.executeTransaction(async (connection) => {
             // 添加入库记录
-            const record = await InRecordModel.create(data);
+            const record = await InRecordModel.create(data, connection);
             
             // 检查批次库存是否存在
             const existingBatch = await dbUtils.queryOne(
                 'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
-                [data.product_id, data.batch_number]
+                [data.product_id, data.batch_number],
+                connection
             );
             
             if (existingBatch) {
                 // 更新批次库存
                 await dbUtils.update(
                     'UPDATE batch_stock SET batch_in_quantity = batch_in_quantity + ?, batch_current_stock = batch_current_stock + ? WHERE id = ?',
-                    [data.quantity, data.quantity, existingBatch.id]
+                    [data.quantity, data.quantity, existingBatch.id],
+                    connection
                 );
             } else {
                 // 创建新批次库存
                 await dbUtils.insert(
                     'INSERT INTO batch_stock (product_id, batch_number, production_date, expiration_date, batch_in_quantity, batch_out_quantity, batch_current_stock, batch_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                    [data.product_id, data.batch_number, data.production_date, data.expiration_date, data.quantity, 0, data.quantity, 'normal']
+                    [data.product_id, data.batch_number, data.production_date, data.expiration_date, data.quantity, 0, data.quantity, 'normal'],
+                    connection
                 );
             }
             
             // 更新总库存
-            await StockModel.updateStock(data.product_id, data.quantity, 0);
+            await StockModel.updateStock(data.product_id, data.quantity, 0, connection);
             
             return record;
         });
@@ -59,7 +62,8 @@ const InventoryService = {
             // 检查批次库存
             const batchStock = await dbUtils.queryOne(
                 'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
-                [data.product_id, data.batch_number]
+                [data.product_id, data.batch_number],
+                connection
             );
             
             if (!batchStock || batchStock.batch_current_stock < data.quantity) {
@@ -67,22 +71,23 @@ const InventoryService = {
             }
             
             // 检查总库存
-            const stock = await StockModel.findByProductId(data.product_id);
+            const stock = await StockModel.findByProductId(data.product_id, connection);
             if (!stock || stock.current_stock < data.quantity) {
                 throw new Error('总库存不足');
             }
             
             // 添加出库记录
-            const record = await OutRecordModel.create(data);
+            const record = await OutRecordModel.create(data, connection);
             
             // 更新批次库存
             await dbUtils.update(
                 'UPDATE batch_stock SET batch_out_quantity = batch_out_quantity + ?, batch_current_stock = batch_current_stock - ? WHERE id = ?',
-                [data.quantity, data.quantity, batchStock.id]
+                [data.quantity, data.quantity, batchStock.id],
+                connection
             );
             
             // 更新总库存（减少库存）
-            await StockModel.updateStock(data.product_id, 0, data.quantity);
+            await StockModel.updateStock(data.product_id, 0, data.quantity, connection);
             
             return record;
         });
@@ -94,14 +99,12 @@ const InventoryService = {
 
     async getProductDetail(productId, month = null) {
         const product = await ProductModel.findById(productId);
-        console.log('ProductModel.findById返回结果:', product);
         if (!product) {
             throw new Error('商品不存在');
         }
 
         const inRecords = await InRecordModel.findByProductId(productId, month);
         const outRecords = await OutRecordModel.findByProductId(productId, month);
-        console.log('OutRecordModel.findByProductId返回结果:', outRecords);
         
         const monthlyStats = await dbUtils.query(`
             SELECT 
@@ -150,7 +153,7 @@ const InventoryService = {
     async cancelInStock(inRecordId) {
         return await dbUtils.executeTransaction(async (connection) => {
             // 获取入库记录
-            const inRecord = await InRecordModel.findById(inRecordId);
+            const inRecord = await InRecordModel.findById(inRecordId, connection);
             if (!inRecord) {
                 throw new Error('入库记录不存在');
             }
@@ -158,7 +161,8 @@ const InventoryService = {
             // 检查批次库存是否足够
             const batchStock = await dbUtils.queryOne(
                 'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
-                [inRecord.product_id, inRecord.batch_number]
+                [inRecord.product_id, inRecord.batch_number],
+                connection
             );
 
             if (!batchStock || batchStock.batch_current_stock < inRecord.quantity) {
@@ -166,7 +170,7 @@ const InventoryService = {
             }
 
             // 检查总库存是否足够
-            const stock = await StockModel.findByProductId(inRecord.product_id);
+            const stock = await StockModel.findByProductId(inRecord.product_id, connection);
             if (!stock || stock.current_stock < inRecord.quantity) {
                 throw new Error('总库存不足，无法撤销');
             }
@@ -174,14 +178,15 @@ const InventoryService = {
             // 更新批次库存
             await dbUtils.update(
                 'UPDATE batch_stock SET batch_in_quantity = batch_in_quantity - ?, batch_current_stock = batch_current_stock - ? WHERE id = ?',
-                [inRecord.quantity, inRecord.quantity, batchStock.id]
+                [inRecord.quantity, inRecord.quantity, batchStock.id],
+                connection
             );
 
             // 更新总库存（减少库存）
-            await StockModel.updateStock(inRecord.product_id, 0, inRecord.quantity);
+            await StockModel.updateStock(inRecord.product_id, 0, inRecord.quantity, connection);
 
             // 删除入库记录
-            await InRecordModel.delete(inRecordId);
+            await InRecordModel.delete(inRecordId, connection);
 
             return { success: true };
         });
@@ -190,7 +195,7 @@ const InventoryService = {
     async updateInStock(inRecordId, data) {
         return await dbUtils.executeTransaction(async (connection) => {
             // 获取原始入库记录
-            const originalRecord = await InRecordModel.findById(inRecordId);
+            const originalRecord = await InRecordModel.findById(inRecordId, connection);
             if (!originalRecord) {
                 throw new Error('入库记录不存在');
             }
@@ -203,7 +208,8 @@ const InventoryService = {
                 if (quantityDiff < 0) {
                     const batchStock = await dbUtils.queryOne(
                         'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
-                        [originalRecord.product_id, originalRecord.batch_number]
+                        [originalRecord.product_id, originalRecord.batch_number],
+                        connection
                     );
 
                     if (!batchStock || batchStock.batch_current_stock < Math.abs(quantityDiff)) {
@@ -211,7 +217,7 @@ const InventoryService = {
                     }
 
                     // 检查总库存是否足够
-                    const stock = await StockModel.findByProductId(originalRecord.product_id);
+                    const stock = await StockModel.findByProductId(originalRecord.product_id, connection);
                     if (!stock || stock.current_stock < Math.abs(quantityDiff)) {
                         throw new Error('总库存不足，无法修改');
                     }
@@ -220,26 +226,28 @@ const InventoryService = {
                 // 更新批次库存
                 const batchStock = await dbUtils.queryOne(
                     'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
-                    [originalRecord.product_id, originalRecord.batch_number]
+                    [originalRecord.product_id, originalRecord.batch_number],
+                    connection
                 );
 
                 if (batchStock) {
                     await dbUtils.update(
                         'UPDATE batch_stock SET batch_in_quantity = batch_in_quantity + ?, batch_current_stock = batch_current_stock + ? WHERE id = ?',
-                        [quantityDiff, quantityDiff, batchStock.id]
+                        [quantityDiff, quantityDiff, batchStock.id],
+                        connection
                     );
                 }
 
                 // 更新总库存
                 if (quantityDiff > 0) {
-                    await StockModel.updateStock(originalRecord.product_id, quantityDiff, 0);
+                    await StockModel.updateStock(originalRecord.product_id, quantityDiff, 0, connection);
                 } else {
-                    await StockModel.updateStock(originalRecord.product_id, 0, Math.abs(quantityDiff));
+                    await StockModel.updateStock(originalRecord.product_id, 0, Math.abs(quantityDiff), connection);
                 }
             }
 
             // 更新入库记录
-            await InRecordModel.update(inRecordId, data);
+            await InRecordModel.update(inRecordId, data, connection);
 
             return { 
                 success: true, 
@@ -254,7 +262,7 @@ const InventoryService = {
     async cancelOutStock(outRecordId) {
         return await dbUtils.executeTransaction(async (connection) => {
             // 获取出库记录
-            const outRecord = await OutRecordModel.findById(outRecordId);
+            const outRecord = await OutRecordModel.findById(outRecordId, connection);
             if (!outRecord) {
                 throw new Error('出库记录不存在');
             }
@@ -262,7 +270,8 @@ const InventoryService = {
             // 检查批次库存
             const batchStock = await dbUtils.queryOne(
                 'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
-                [outRecord.product_id, outRecord.batch_number]
+                [outRecord.product_id, outRecord.batch_number],
+                connection
             );
 
             if (!batchStock) {
@@ -272,14 +281,15 @@ const InventoryService = {
             // 更新批次库存
             await dbUtils.update(
                 'UPDATE batch_stock SET batch_out_quantity = batch_out_quantity - ?, batch_current_stock = batch_current_stock + ? WHERE id = ?',
-                [outRecord.quantity, outRecord.quantity, batchStock.id]
+                [outRecord.quantity, outRecord.quantity, batchStock.id],
+                connection
             );
 
             // 更新总库存（增加库存）
-            await StockModel.updateStock(outRecord.product_id, outRecord.quantity, 0);
+            await StockModel.updateStock(outRecord.product_id, outRecord.quantity, 0, connection);
 
             // 删除出库记录
-            await OutRecordModel.delete(outRecordId);
+            await OutRecordModel.delete(outRecordId, connection);
 
             return { success: true };
         });
@@ -288,7 +298,7 @@ const InventoryService = {
     async updateOutStock(outRecordId, data) {
         return await dbUtils.executeTransaction(async (connection) => {
             // 获取原始出库记录
-            const originalRecord = await OutRecordModel.findById(outRecordId);
+            const originalRecord = await OutRecordModel.findById(outRecordId, connection);
             if (!originalRecord) {
                 throw new Error('出库记录不存在');
             }
@@ -301,7 +311,8 @@ const InventoryService = {
                 if (quantityDiff > 0) {
                     const batchStock = await dbUtils.queryOne(
                         'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
-                        [originalRecord.product_id, originalRecord.batch_number]
+                        [originalRecord.product_id, originalRecord.batch_number],
+                        connection
                     );
 
                     if (!batchStock || batchStock.batch_current_stock < quantityDiff) {
@@ -309,7 +320,7 @@ const InventoryService = {
                     }
 
                     // 检查总库存是否足够
-                    const stock = await StockModel.findByProductId(originalRecord.product_id);
+                    const stock = await StockModel.findByProductId(originalRecord.product_id, connection);
                     if (!stock || stock.current_stock < quantityDiff) {
                         throw new Error('总库存不足，无法修改');
                     }
@@ -318,26 +329,28 @@ const InventoryService = {
                 // 更新批次库存
                 const batchStock = await dbUtils.queryOne(
                     'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
-                    [originalRecord.product_id, originalRecord.batch_number]
+                    [originalRecord.product_id, originalRecord.batch_number],
+                    connection
                 );
 
                 if (batchStock) {
                     await dbUtils.update(
                         'UPDATE batch_stock SET batch_out_quantity = batch_out_quantity + ?, batch_current_stock = batch_current_stock - ? WHERE id = ?',
-                        [quantityDiff, quantityDiff, batchStock.id]
+                        [quantityDiff, quantityDiff, batchStock.id],
+                        connection
                     );
                 }
 
                 // 更新总库存
                 if (quantityDiff > 0) {
-                    await StockModel.updateStock(originalRecord.product_id, 0, quantityDiff);
+                    await StockModel.updateStock(originalRecord.product_id, 0, quantityDiff, connection);
                 } else {
-                    await StockModel.updateStock(originalRecord.product_id, Math.abs(quantityDiff), 0);
+                    await StockModel.updateStock(originalRecord.product_id, Math.abs(quantityDiff), 0, connection);
                 }
             }
 
             // 更新出库记录
-            await OutRecordModel.update(outRecordId, data);
+            await OutRecordModel.update(outRecordId, data, connection);
 
             return { 
                 success: true,
@@ -352,11 +365,19 @@ const InventoryService = {
     // 获取设置
     async getSettings() {
         try {
-            const settings = await dbUtils.queryOne('SELECT * FROM system_settings ORDER BY id DESC LIMIT 1');
-            if (settings) {
-                return JSON.parse(settings.settings_json);
+            const rows = await dbUtils.query('SELECT setting_key, setting_value FROM settings');
+            if (!rows || rows.length === 0) {
+                return null;
             }
-            return null;
+            const result = {};
+            for (const row of rows) {
+                try {
+                    result[row.setting_key] = JSON.parse(row.setting_value);
+                } catch (e) {
+                    result[row.setting_key] = row.setting_value;
+                }
+            }
+            return result;
         } catch (error) {
             console.error('获取设置失败:', error);
             return null;
@@ -366,19 +387,21 @@ const InventoryService = {
     // 保存设置
     async saveSettings(settings) {
         try {
-            const settingsJson = JSON.stringify(settings);
-            const existing = await dbUtils.queryOne('SELECT id FROM system_settings LIMIT 1');
+            for (const [key, value] of Object.entries(settings)) {
+                const valueJson = JSON.stringify(value);
+                const existing = await dbUtils.queryOne('SELECT id FROM settings WHERE setting_key = ?', [key]);
 
-            if (existing) {
-                await dbUtils.update(
-                    'UPDATE system_settings SET settings_json = ?, updated_at = NOW() WHERE id = ?',
-                    [settingsJson, existing.id]
-                );
-            } else {
-                await dbUtils.insert(
-                    'INSERT INTO system_settings (settings_json, created_at, updated_at) VALUES (?, NOW(), NOW())',
-                    [settingsJson]
-                );
+                if (existing) {
+                    await dbUtils.update(
+                        'UPDATE settings SET setting_value = ?, updated_at = NOW() WHERE setting_key = ?',
+                        [valueJson, key]
+                    );
+                } else {
+                    await dbUtils.insert(
+                        'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)',
+                        [key, valueJson]
+                    );
+                }
             }
             return { success: true };
         } catch (error) {
@@ -390,9 +413,9 @@ const InventoryService = {
     // 获取北京时间（UTC+8）的格式化时间字符串
     getBeijingTimestamp() {
         const now = new Date();
-        // 转换为北京时间（UTC+8）
-        const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-        return beijingTime.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        // 使用 Intl 获取正确的北京时间
+        const beijingTime = now.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' });
+        return beijingTime.replace(/[:.]/g, '-').slice(0, 19);
     },
 
     // 创建备份
@@ -438,21 +461,34 @@ const InventoryService = {
             dbName = dbConfigObj.database || dbName;
         }
 
-        // 执行 mysqldump
-        const passwordPart = dbPassword ? `-p"${dbPassword}"` : '';
-        const command = `mysqldump -h ${dbHost} -u ${dbUser} ${passwordPart} ${dbName} > "${filePath}"`;
+        // 执行 mysqldump（使用 execFile 避免 shell 注入）
+        const mysqldumpArgs = ['-h', dbHost, '-u', dbUser];
+        if (dbPassword) {
+            mysqldumpArgs.push(`-p${dbPassword}`);
+        }
+        mysqldumpArgs.push(dbName);
 
         try {
-            await execPromise(command);
+            // 使用 spawn 避免 shell 注入，通过管道写入文件
+            const { spawn } = require('child_process');
+            await new Promise((resolve, reject) => {
+                const child = spawn('mysqldump', mysqldumpArgs);
+                const writeStream = fsSync.createWriteStream(filePath);
+                child.stdout.pipe(writeStream);
+                child.stderr.on('data', (data) => {});
+                child.on('close', (code) => {
+                    if (code === 0) resolve();
+                    else reject(new Error(`mysqldump exited with code ${code}`));
+                });
+                child.on('error', reject);
+            });
 
             // 获取文件大小
             const stats = fsSync.statSync(filePath);
             const fileSize = (stats.size / 1024 / 1024).toFixed(2); // MB
 
             // 获取北京时间作为创建时间（格式：YYYY-MM-DD HH:MM:SS）
-            const now = new Date();
-            const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-            const beijingTimeStr = beijingTime.toISOString().replace('T', ' ').slice(0, 19);
+            const beijingTimeStr = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' });
 
             // 保存备份记录到数据库
             await dbUtils.insert(
@@ -507,7 +543,6 @@ const InventoryService = {
                     }
                     // 删除数据库记录
                     await dbUtils.update('DELETE FROM backups WHERE id = ?', [backup.id]);
-                    console.log(`清理旧自动备份: ${backup.file_name}`);
                 }
             }
         } catch (error) {
@@ -600,8 +635,6 @@ const InventoryService = {
                         'INSERT INTO backups (file_name, file_path, file_size, created_by, created_at, backup_type) VALUES (?, ?, ?, ?, ?, ?)',
                         [fileName, filePath, fileSize, '扫描同步', createdAtStr, backupType]
                     );
-
-                    console.log(`同步备份文件到数据库: ${fileName}`);
                 }
             }
 
@@ -610,7 +643,6 @@ const InventoryService = {
                 const filePath = path.join(backupDir, backup.file_name);
                 if (!fsSync.existsSync(filePath)) {
                     await dbUtils.update('DELETE FROM backups WHERE file_name = ?', [backup.file_name]);
-                    console.log(`清理已删除的备份记录: ${backup.file_name}`);
                 }
             }
         } catch (error) {
@@ -649,10 +681,12 @@ const InventoryService = {
                 await connection.execute('DELETE FROM in_records');
                 // 清理出库记录
                 await connection.execute('DELETE FROM out_records');
-                // 重置库存数量为0
+                // 重置商品库存为0
                 await connection.execute('UPDATE products SET stock = 0');
                 // 清理批次库存
                 await connection.execute('DELETE FROM batch_stock');
+                // 重置库存汇总表
+                await connection.execute('UPDATE stock_inventory SET total_in_quantity = 0, total_out_quantity = 0, current_stock = 0, stock_status = \'out_of_stock\'');
             });
             return { success: true };
         } catch (error) {
@@ -708,20 +742,28 @@ const InventoryService = {
             dbName = dbConfigObj.database || dbName;
         }
 
-        // 执行恢复
-        const passwordPart = dbPassword ? `-p"${dbPassword}"` : '';
-        const command = `mysql -h ${dbHost} -u ${dbUser} ${passwordPart} ${dbName} < "${backup.file_path}"`;
-
-        await execPromise(command);
+        // 执行恢复（使用 spawn 避免 shell 注入，通过 stdin 传入文件内容）
+        const mysqlArgs = ['-h', dbHost, '-u', dbUser, dbName];
+        if (dbPassword) {
+            mysqlArgs.push(`-p${dbPassword}`);
+        }
+        const { spawn } = require('child_process');
+        await new Promise((resolve, reject) => {
+            const child = spawn('mysql', mysqlArgs);
+            const readStream = fsSync.createReadStream(backup.file_path);
+            readStream.pipe(child.stdin);
+            child.stdin.on('end', () => {});
+            child.stderr.on('data', () => {});
+            child.on('close', (code) => {
+                if (code === 0) resolve();
+                else reject(new Error(`mysql exited with code ${code}`));
+            });
+            child.on('error', reject);
+        });
         return { success: true };
     },
 
-    // 保存自动备份配置
-    async saveAutoBackupConfig(config) {
-        const settings = await this.getSettings() || {};
-        settings.autoBackup = config;
-        return await this.saveSettings(settings);
-    },
+
 
     // 修改密码
     async changePassword(userId, currentPassword, newPassword) {

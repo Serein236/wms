@@ -1,6 +1,16 @@
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
 async function checkLogin() {
             try {
                 const response = await fetch('/api/auth/current-user');
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
                 const data = await response.json();
 
                 if (!data.loggedIn) {
@@ -30,6 +40,9 @@ async function checkLogin() {
         async function loadStockMethods(type) {
             try {
                 const response = await fetch(`/api/stock-methods?type=${type}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
                 const methods = await response.json();
                 const select = document.getElementById('stock_method_name');
                 select.innerHTML = '<option value="">请选择出入库方式</option>';
@@ -49,6 +62,9 @@ async function checkLogin() {
         async function loadProducts() {
             try {
                 const response = await fetch('/api/products');
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
                 products = await response.json();
 
                 const select = document.getElementById('productId');
@@ -80,6 +96,9 @@ async function checkLogin() {
                 }
 
                 const response = await fetch(`/api/product-batches/${productId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
                 const batches = await response.json();
 
                 batches.forEach(batch => {
@@ -126,28 +145,28 @@ async function checkLogin() {
                             <p><strong>商品ID:</strong> ${product.id || '-'}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>商品编码:</strong> ${product.product_code || '-'}</p>
+                            <p><strong>商品编码:</strong> ${escapeHtml(product.product_code) || '-'}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>商品名称:</strong> ${product.name || '-'}</p>
+                            <p><strong>商品名称:</strong> ${escapeHtml(product.name) || '-'}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>规格:</strong> ${product.spec || '-'}</p>
+                            <p><strong>规格:</strong> ${escapeHtml(product.spec) || '-'}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>单位:</strong> ${product.unit || '-'}</p>
+                            <p><strong>单位:</strong> ${escapeHtml(product.unit) || '-'}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>装箱规格:</strong> ${product.packing_spec || '-'}</p>
+                            <p><strong>装箱规格:</strong> ${escapeHtml(product.packing_spec) || '-'}</p>
                         </div>
                         <div class="col-md-6">
                             <p><strong>零售价:</strong> ${product.retail_price ? '¥' + parseFloat(product.retail_price).toFixed(2) : '-'}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>条形码:</strong> ${product.barcode || '-'}</p>
+                            <p><strong>条形码:</strong> ${escapeHtml(product.barcode) || '-'}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>生产厂家:</strong> ${product.manufacturer || '-'}</p>
+                            <p><strong>生产厂家:</strong> ${escapeHtml(product.manufacturer) || '-'}</p>
                         </div>
                         <div class="col-md-6">
                             <p><strong>警告库存:</strong> ${product.warning_quantity || '-'}</p>
@@ -274,6 +293,10 @@ async function checkLogin() {
                     body: JSON.stringify(outData)
                 });
 
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+
                 const data = await response.json();
 
                 if (data.success) {
@@ -328,6 +351,9 @@ async function checkLogin() {
                     debounceTimer = setTimeout(async () => {
                         try {
                             const response = await fetch(`/api/customers?query=${encodeURIComponent(query)}`);
+                            if (!response.ok) {
+                                throw new Error(`HTTP错误: ${response.status}`);
+                            }
                             currentCustomers = await response.json();
                             showCustomerSuggestions(currentCustomers);
                         } catch (error) {

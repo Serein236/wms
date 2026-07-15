@@ -44,6 +44,7 @@ CREATE TABLE `stock_methods`  (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_method_name_type`(`method_name` ASC, `type` ASC) USING BTREE,
+  UNIQUE INDEX `uk_method_name`(`method_name` ASC) USING BTREE,
   INDEX `idx_type`(`type` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
@@ -180,7 +181,7 @@ CREATE TABLE `users`  (
 
 -- 初始化管理员用户
 INSERT INTO `users` (username, display_name, password, role, is_active) VALUES 
-('admin', '系统管理员', '$2b$10$leTrmigjUad6O0TiF8Fg0.Ho7RalUj.8M/jQQar6XLF2dELiPX.AG', 'admin', 1);
+('admin', '系统管理员', '$2a$10$y.Z8.b.H1rX8zFzk0dwdV.1qL.HGyW4YodhKllmPb.6Jtki/gMpR2', 'admin', 1);
 
 -- ----------------------------
 -- 8. 备份记录表
@@ -218,7 +219,5 @@ CREATE TABLE `settings` (
 INSERT INTO `settings` (setting_key, setting_value, description) VALUES
 ('export', '{"companyName":"公司名称","address":"公司地址","phone":"联系电话"}', '导出配置'),
 ('autoBackup', '{"enabled":false,"retention":5}', '自动备份配置');
-
-SET FOREIGN_KEY_CHECKS = 1;
 
 SET FOREIGN_KEY_CHECKS = 1;
