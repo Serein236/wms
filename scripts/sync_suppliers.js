@@ -4,23 +4,33 @@
  * 说明: 升级时执行一次，之后录入出入库会自动添加新供应商
  */
 const mysql = require('mysql2');
+const fs = require('fs');
 const path = require('path');
 
-// 优先读取项目数据库配置，否则使用环境变量或默认值
+// 读取数据库配置
 let dbConfig;
 try {
-    dbConfig = require(path.join(__dirname, '../config/databases')).dbConfig;
-} catch (e) {
-    dbConfig = {
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT) || 3306,
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || 'root',
-        database: process.env.DB_NAME || 'warehouse',
-        charset: 'utf8mb4'
-    };
+    // 方法1: 直接 require 配置文件
+    const config = require(path.join(__dirname, '..', 'config', 'databases'));
+    dbConfig = config.dbConfig || config;
+} catch (e1) {
+    try {
+        // 方法2: 读取 .env 或使用默认值
+        dbConfig = {
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT) || 3306,
+            user: process.env.DB_USER || 'root',
+            password: process.env.DB_PASSWORD || 'root',
+            database: process.env.DB_NAME || 'warehouse',
+            charset: 'utf8mb4'
+        };
+    } catch (e2) {
+        console.error('无法读取数据库配置，请设置环境变量 DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME');
+        process.exit(1);
+    }
 }
 
+console.log(`连接数据库: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}\n`);
 const conn = mysql.createConnection(dbConfig);
 
 async function sync() {
