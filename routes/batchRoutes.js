@@ -7,5 +7,6 @@ router.use(requireLogin);
 
 router.post('/in', batchController.batchInStock);
 router.post('/out', batchController.batchOutStock);
+router.get('/template', batchController.getTemplate);
 
 module.exports = router;

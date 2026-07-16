@@ -1,7 +1,7 @@
 /*
  仓库管理系统数据库 - 批次管理版本
- 版本: v3.2
- 日期: 2026-04-13
+ 版本: v3.3
+ 日期: 2026-07-16
 */
 
 SET NAMES utf8mb4;
@@ -239,5 +239,57 @@ CREATE TABLE `suppliers` (
   UNIQUE INDEX `uk_supplier_name`(`name` ASC) USING BTREE,
   INDEX `idx_is_active`(`is_active` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- 11. 库存盘点表
+-- ----------------------------
+DROP TABLE IF EXISTS `stocktaking`;
+CREATE TABLE `stocktaking` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL COMMENT '盘点名称',
+  `status` enum('draft','in_progress','completed','cancelled') DEFAULT 'draft' COMMENT '盘点状态',
+  `created_by` int DEFAULT NULL COMMENT '创建人',
+  `started_at` timestamp NULL DEFAULT NULL COMMENT '开始时间',
+  `completed_at` timestamp NULL DEFAULT NULL COMMENT '完成时间',
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- 12. 库存盘点明细表
+-- ----------------------------
+DROP TABLE IF EXISTS `stocktaking_items`;
+CREATE TABLE `stocktaking_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `stocktaking_id` int NOT NULL COMMENT '盘点单ID',
+  `product_id` int NOT NULL COMMENT '商品ID',
+  `system_stock` int DEFAULT 0 COMMENT '系统库存',
+  `actual_stock` int DEFAULT NULL COMMENT '实际库存',
+  `difference` int DEFAULT 0 COMMENT '差异',
+  `remark` text DEFAULT NULL COMMENT '备注',
+  `counted_at` timestamp NULL DEFAULT NULL COMMENT '盘点时间',
+  `counted_by` int DEFAULT NULL COMMENT '盘点人',
+  PRIMARY KEY (`id`),
+  KEY `fk_st_stocktaking` (`stocktaking_id`),
+  KEY `fk_st_product` (`product_id`),
+  CONSTRAINT `fk_st_stocktaking` FOREIGN KEY (`stocktaking_id`) REFERENCES `stocktaking` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_st_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- 13. 系统设置表
+-- ----------------------------
+DROP TABLE IF EXISTS `system_settings`;
+CREATE TABLE `system_settings` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `settings_json` text NOT NULL COMMENT '设置JSON',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `system_settings` (settings_json) VALUES
+('{"autoBackup":{"enabled":true,"frequency":"daily","retention":5}}');
 
 SET FOREIGN_KEY_CHECKS = 1;

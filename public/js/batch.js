@@ -61,7 +61,7 @@ function renderItems() {
             <div class="card-body py-2">
                 <div class="row g-2 align-items-end">
                     <div class="col-md-3">
-                        <select class="form-select form-select-sm" onchange="batchItems[${i}].product_id=this.value">
+                        <select class="form-select form-select-sm" onchange="batchItems[${i}].product_id=parseInt(this.value)||0">
                             <option value="">选择商品</option>
                             ${products.map(p => `<option value="${p.id}" ${p.id == item.product_id ? 'selected' : ''}>${p.name}</option>`).join('')}
                         </select>
@@ -71,13 +71,19 @@ function renderItems() {
                             ${stockMethods[currentMode].map(m => `<option value="${m}" ${m === item.stock_method_name ? 'selected' : ''}>${m}</option>`).join('')}
                         </select>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <input type="text" class="form-control form-control-sm" placeholder="批号" value="${item.batch_number}" onchange="batchItems[${i}].batch_number=this.value">
+                    </div>
+                    <div class="col-md-1">
+                        <input type="date" class="form-control form-control-sm" value="${item.production_date||''}" onchange="batchItems[${i}].production_date=this.value" title="生产日期">
+                    </div>
+                    <div class="col-md-1">
+                        <input type="date" class="form-control form-control-sm" value="${item.expiration_date||''}" onchange="batchItems[${i}].expiration_date=this.value" title="过期日期">
                     </div>
                     <div class="col-md-1">
                         <input type="number" class="form-control form-control-sm" min="1" value="${item.quantity}" onchange="batchItems[${i}].quantity=parseInt(this.value)||1">
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <input type="number" class="form-control form-control-sm" step="0.01" placeholder="单价" value="${item.unit_price||''}" onchange="batchItems[${i}].unit_price=parseFloat(this.value)||0">
                     </div>
                     <div class="col-md-1">
@@ -94,7 +100,10 @@ function renderItems() {
 async function submitBatch() {
     if (!batchItems.length) { alert('请先添加项目'); return; }
 
-    const validItems = batchItems.filter(item => item.product_id && item.batch_number);
+    const validItems = batchItems.filter(item => item.product_id && item.batch_number).map(item => ({
+        ...item,
+        total_amount: (item.quantity || 0) * (item.unit_price || 0)
+    }));
     if (!validItems.length) { alert('请至少填写一个完整的项目（商品、批号）'); return; }
 
     const btn = document.getElementById('submitBtn');
@@ -133,6 +142,65 @@ async function submitBatch() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>提交批量操作';
+    }
+}
+
+async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+        if (typeof ExcelJS === 'undefined') {
+            alert('ExcelJS库未加载，请刷新页面重试');
+            return;
+        }
+
+        const buffer = await file.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.worksheets[0];
+
+        let imported = 0;
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // skip header
+
+            const values = row.values;
+            // Expected columns: 商品名称, 入库方式/出库方式, 批号, 生产日期, 过期日期, 数量, 单价
+            const productName = String(values[1] || '').trim();
+            const methodName = String(values[2] || '').trim();
+            const batchNumber = String(values[3] || '').trim();
+            const productionDate = values[4] ? String(values[4]).trim() : '';
+            const expirationDate = values[5] ? String(values[5]).trim() : '';
+            const quantity = parseInt(values[6]) || 0;
+            const unitPrice = parseFloat(values[7]) || 0;
+
+            if (!productName || !quantity) return;
+
+            // Find product by name
+            const product = products.find(p => p.name === productName || p.name.includes(productName));
+            if (!product) return;
+
+            const methods = stockMethods[currentMode];
+            const method = methods.includes(methodName) ? methodName : methods[0];
+
+            batchItems.push({
+                product_id: product.id,
+                stock_method_name: method,
+                batch_number: batchNumber || 'B' + Date.now(),
+                production_date: productionDate,
+                expiration_date: expirationDate,
+                quantity: quantity,
+                unit_price: unitPrice
+            });
+            imported++;
+        });
+
+        renderItems();
+        alert(`成功导入 ${imported} 条记录`);
+        event.target.value = '';
+    } catch (e) {
+        console.error('导入失败:', e);
+        alert('导入失败: ' + e.message);
     }
 }
 

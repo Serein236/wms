@@ -90,6 +90,22 @@ const batchController = {
 
         logger.info('批量出库', { operator: username, operatorId: created_by, successCount, failCount });
         res.json({ success: true, successCount, failCount, errors: errors.slice(0, 10) });
+    },
+
+    async getTemplate(req, res) {
+        const XLSX = require('xlsx');
+        const template = [
+            ['商品名称*', '入库方式', '批号', '生产日期', '过期日期', '数量*', '单价'],
+            ['示例商品A', '采购入库', 'B20260716', '2026/07/01', '2027/07/01', 100, 25.00]
+        ];
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(template);
+        ws['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 10 }];
+        XLSX.utils.book_append_sheet(wb, ws, '批量出入库模板');
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        res.setHeader('Content-Disposition', 'attachment; filename=batch_template.xlsx');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
     }
 };
 
