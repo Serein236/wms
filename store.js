@@ -24,6 +24,9 @@ const logger = require('./utils/logger');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// 信任反向代理（nginx等），使 express-rate-limit 正确识别客户端IP
+app.set('trust proxy', 1);
+
 // CORS
 app.use(cors({
     origin: '*',
