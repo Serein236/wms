@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据看板 - 仓库管理系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="css/common.css" rel="stylesheet">
+    <link href="css/modern.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        .kpi-card { border-left: 4px solid; transition: transform 0.2s; }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .kpi-card.primary { border-left-color: #0d6efd; }
+        .kpi-card.success { border-left-color: #198754; }
+        .kpi-card.info { border-left-color: #0dcaf0; }
+        .kpi-card.warning { border-left-color: #ffc107; }
+        .kpi-value { font-size: 1.8rem; font-weight: 700; }
+        .chart-container { position: relative; height: 300px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="index.html"><i class="bi bi-warehouse me-2"></i>仓库管理系统</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-house-door me-1"></i>首页</a></li>
+                    <li class="nav-item"><a class="nav-link" href="product_list.html"><i class="bi bi-box-seam me-1"></i>商品管理</a></li>
+                    <li class="nav-item"><a class="nav-link" href="in.html"><i class="bi bi-arrow-down-circle me-1"></i>入库</a></li>
+                    <li class="nav-item"><a class="nav-link" href="out.html"><i class="bi bi-arrow-up-circle me-1"></i>出库</a></li>
+                    <li class="nav-item"><a class="nav-link" href="stock.html"><i class="bi bi-clipboard-data me-1"></i>库存</a></li>
+                    <li class="nav-item"><a class="nav-link" href="suppliers.html"><i class="bi bi-truck me-1"></i>供应商</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="dashboard.html"><i class="bi bi-bar-chart me-1"></i>看板</a></li>
+                    <li class="nav-item"><a class="nav-link" href="batch.html"><i class="bi bi-list-columns me-1"></i>批量</a></li>
+                    <li class="nav-item"><a class="nav-link" href="stocktaking.html"><i class="bi bi-clipboard-check me-1"></i>盘点</a></li>
+                    <li class="nav-item"><a class="nav-link" href="settings.html"><i class="bi bi-gear me-1"></i>设置</a></li>
+                </ul>
+                <div class="d-flex align-items-center text-white">
+                    <span id="currentUser" class="me-3"></span>
+                    <button class="btn btn-outline-light btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right me-1"></i>退出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid main-content">
+        <div class="page-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 12px; margin-bottom: 1.5rem;">
+            <h2 class="mb-1"><i class="bi bi-bar-chart-line me-2"></i>数据看板</h2>
+            <p class="mb-0">实时查看仓库运营数据概览</p>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-xl-3 col-md-6">
+                <div class="card kpi-card primary"><div class="card-body"><div class="d-flex justify-content-between align-items-center"><div><div class="text-muted mb-1">商品总数</div><div class="kpi-value" id="kpiProducts">-</div></div><i class="bi bi-box-seam fs-1 text-primary opacity-50"></i></div></div></div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card kpi-card success"><div class="card-body"><div class="d-flex justify-content-between align-items-center"><div><div class="text-muted mb-1">库存总量</div><div class="kpi-value" id="kpiStock">-</div></div><i class="bi bi-archive fs-1 text-success opacity-50"></i></div></div></div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card kpi-card info"><div class="card-body"><div class="d-flex justify-content-between align-items-center"><div><div class="text-muted mb-1">库存总值</div><div class="kpi-value" id="kpiValue">-</div></div><i class="bi bi-currency-yen fs-1 text-info opacity-50"></i></div></div></div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card kpi-card warning"><div class="card-body"><div class="d-flex justify-content-between align-items-center"><div><div class="text-muted mb-1">出入库记录</div><div class="kpi-value" id="kpiRecords">-</div></div><i class="bi bi-arrow-left-right fs-1 text-warning opacity-50"></i></div></div></div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-xl-8"><div class="card"><div class="card-header"><i class="bi bi-graph-up me-2"></i>月度出入库趋势</div><div class="card-body"><div class="chart-container"><canvas id="trendChart"></canvas></div></div></div></div>
+            <div class="col-xl-4"><div class="card"><div class="card-header"><i class="bi bi-pie-chart me-2"></i>库存状态分布</div><div class="card-body"><div class="chart-container"><canvas id="statusChart"></canvas></div></div></div></div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-xl-6"><div class="card"><div class="card-header"><i class="bi bi-bar-chart me-2"></i>库存量 TOP 10</div><div class="card-body"><div class="chart-container"><canvas id="topProductsChart"></canvas></div></div></div></div>
+            <div class="col-xl-6">
+                <div class="card">
+                    <div class="card-header"><i class="bi bi-exclamation-triangle me-2"></i>库存预警商品</div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 300px;">
+                            <table class="table table-hover table-sm align-middle"><thead><tr><th>商品名称</th><th>当前库存</th><th>预警线</th><th>状态</th></tr></thead><tbody id="alertTable"></tbody></table>
+                        </div>
+                        <div id="alertEmpty" class="text-center text-muted py-3 d-none">暂无预警商品</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer><div class="container">&copy; 2026 仓库管理系统 | <a href="https://beian.miit.gov.cn/" target="_blank" class="text-decoration-none text-reset">鄂ICP备2025167566号</a></div></footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var b = document.querySelector('footer a[href*="beian.miit.gov.cn"]');
+            if (b && config && config.beian) b.textContent = config.beian;
+        });
+    </script>
+</body>
+</html>

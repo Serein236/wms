@@ -3,6 +3,8 @@ const UserModel = require('../models/UserModel');
 function requireLogin(req, res, next) {
     if (req.session.userId) {
         next();
+    } else if (req.path.startsWith('/api/')) {
+        res.status(401).json({ success: false, message: '请先登录' });
     } else {
         res.redirect('/login.html');
     }

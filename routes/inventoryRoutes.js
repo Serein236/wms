@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const inventoryController = require('../controllers/inventoryController');
+const backupController = require('../controllers/backupController');
+const settingsController = require('../controllers/settingsController');
 const { requireLogin, requireAdmin } = require('../middleware/auth');
 
 router.use(requireLogin);
@@ -342,7 +344,7 @@ router.get('/product-batches/:productId', inventoryController.getProductBatches)
  *       500:
  *         description: 查询失败
  */
-router.get('/suppliers', inventoryController.getSuppliers);
+// 供应商搜索已迁移到 /api/suppliers/search（SupplierModel）
 
 /**
  * @swagger
@@ -494,7 +496,7 @@ router.delete('/stock-methods-admin/:id', requireAdmin, inventoryController.dele
  *       500:
  *         description: 查询失败
  */
-router.get('/settings', inventoryController.getSettings);
+router.get('/settings', settingsController.getSettings);
 
 /**
  * @swagger
@@ -515,7 +517,7 @@ router.get('/settings', inventoryController.getSettings);
  *       500:
  *         description: 设置保存失败
  */
-router.post('/settings', inventoryController.saveSettings);
+router.post('/settings', settingsController.saveSettings);
 
 /**
  * @swagger
@@ -530,7 +532,7 @@ router.post('/settings', inventoryController.saveSettings);
  *       500:
  *         description: 备份创建失败
  */
-router.post('/backup', inventoryController.createBackup);
+router.post('/backup', backupController.createBackup);
 
 /**
  * @swagger
@@ -545,7 +547,7 @@ router.post('/backup', inventoryController.createBackup);
  *       500:
  *         description: 查询失败
  */
-router.get('/backups', inventoryController.getBackupList);
+router.get('/backups', backupController.getBackupList);
 
 /**
  * @swagger
@@ -566,7 +568,7 @@ router.get('/backups', inventoryController.getBackupList);
  *       404:
  *         description: 备份不存在
  */
-router.get('/backups/:id/download', inventoryController.downloadBackup);
+router.get('/backups/:id/download', backupController.downloadBackup);
 
 /**
  * @swagger
@@ -587,7 +589,7 @@ router.get('/backups/:id/download', inventoryController.downloadBackup);
  *       404:
  *         description: 备份不存在
  */
-router.delete('/backups/:id', inventoryController.deleteBackup);
+router.delete('/backups/:id', backupController.deleteBackup);
 
 /**
  * @swagger
@@ -608,7 +610,7 @@ router.delete('/backups/:id', inventoryController.deleteBackup);
  *       404:
  *         description: 备份不存在
  */
-router.post('/backups/:id/restore', inventoryController.restoreBackup);
+router.post('/backups/:id/restore', backupController.restoreBackup);
 
 /**
  * @swagger
@@ -629,7 +631,7 @@ router.post('/backups/:id/restore', inventoryController.restoreBackup);
  *       500:
  *         description: 自动备份配置保存失败
  */
-router.post('/auto-backup-config', inventoryController.saveAutoBackupConfig);
+router.post('/auto-backup-config', backupController.saveAutoBackupConfig);
 
 /**
  * @swagger
@@ -655,7 +657,7 @@ router.post('/auto-backup-config', inventoryController.saveAutoBackupConfig);
  *       400:
  *         description: 原密码错误
  */
-router.post('/change-password', inventoryController.changePassword);
+router.post('/change-password', settingsController.changePassword);
 
 /**
  * @swagger

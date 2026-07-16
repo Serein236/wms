@@ -4,30 +4,17 @@ const InRecordModel = require('../models/InRecordModel');
 const OutRecordModel = require('../models/OutRecordModel');
 const StockModel = require('../models/StockModel');
 const dbUtils = require('../utils/dbUtils');
-const fs = require('fs').promises;
-const fsSync = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
-const util = require('util');
-const execPromise = util.promisify(exec);
 const bcrypt = require('bcryptjs');
+const { addPagination } = require('../utils/pagination');
 
-// 导入数据库配置获取连接信息
-let dbConfigObj = null;
-try {
-    const dbModule = require('../config/databases');
-    dbConfigObj = dbModule.dbConfig || null;
-} catch (e) {
-    console.error('加载数据库配置失败:', e);
-}
+const BackupService = require('./BackupService');
+const SettingsService = require('./SettingsService');
 
 const InventoryService = {
     async inStock(data) {
         return await dbUtils.executeTransaction(async (connection) => {
-            // 添加入库记录
             const record = await InRecordModel.create(data, connection);
             
-            // 检查批次库存是否存在
             const existingBatch = await dbUtils.queryOne(
                 'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
                 [data.product_id, data.batch_number],
@@ -35,14 +22,12 @@ const InventoryService = {
             );
             
             if (existingBatch) {
-                // 更新批次库存
                 await dbUtils.update(
                     'UPDATE batch_stock SET batch_in_quantity = batch_in_quantity + ?, batch_current_stock = batch_current_stock + ? WHERE id = ?',
                     [data.quantity, data.quantity, existingBatch.id],
                     connection
                 );
             } else {
-                // 创建新批次库存
                 await dbUtils.insert(
                     'INSERT INTO batch_stock (product_id, batch_number, production_date, expiration_date, batch_in_quantity, batch_out_quantity, batch_current_stock, batch_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                     [data.product_id, data.batch_number, data.production_date, data.expiration_date, data.quantity, 0, data.quantity, 'normal'],
@@ -50,7 +35,6 @@ const InventoryService = {
                 );
             }
             
-            // 更新总库存
             await StockModel.updateStock(data.product_id, data.quantity, 0, connection);
             
             return record;
@@ -59,7 +43,6 @@ const InventoryService = {
 
     async outStock(data) {
         return await dbUtils.executeTransaction(async (connection) => {
-            // 检查批次库存
             const batchStock = await dbUtils.queryOne(
                 'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
                 [data.product_id, data.batch_number],
@@ -70,23 +53,19 @@ const InventoryService = {
                 throw new Error('批次库存不足');
             }
             
-            // 检查总库存
             const stock = await StockModel.findByProductId(data.product_id, connection);
             if (!stock || stock.current_stock < data.quantity) {
                 throw new Error('总库存不足');
             }
             
-            // 添加出库记录
             const record = await OutRecordModel.create(data, connection);
             
-            // 更新批次库存
             await dbUtils.update(
                 'UPDATE batch_stock SET batch_out_quantity = batch_out_quantity + ?, batch_current_stock = batch_current_stock - ? WHERE id = ?',
                 [data.quantity, data.quantity, batchStock.id],
                 connection
             );
             
-            // 更新总库存（减少库存）
             await StockModel.updateStock(data.product_id, 0, data.quantity, connection);
             
             return record;
@@ -95,6 +74,58 @@ const InventoryService = {
 
     async getStockReport() {
         return await StockModel.getBatchStockReport();
+    },
+
+    async getStockReportCount() {
+        return await StockModel.countBatchStockReport();
+    },
+
+    async getStockReportPaginated(pagination) {
+        const baseQuery = `
+            SELECT
+                p.id as product_id,
+                p.name as product_name,
+                p.spec as product_spec,
+                p.unit as product_unit,
+                s.warning_quantity,
+                s.danger_quantity,
+                b.batch_number,
+                b.production_date,
+                b.expiration_date,
+                b.batch_in_quantity,
+                b.batch_out_quantity,
+                b.batch_current_stock as current_stock,
+                b.batch_status,
+                MAX(i.unit_price) as in_price
+            FROM
+                batch_stock b
+            JOIN
+                products p ON b.product_id = p.id
+            JOIN
+                stock_inventory s ON b.product_id = s.product_id
+            JOIN
+                in_records i ON b.product_id = i.product_id AND b.batch_number = i.batch_number
+            WHERE
+                b.batch_current_stock > 0
+            GROUP BY
+                p.id,
+                p.name,
+                p.spec,
+                p.unit,
+                s.warning_quantity,
+                s.danger_quantity,
+                b.batch_number,
+                b.production_date,
+                b.expiration_date,
+                b.batch_in_quantity,
+                b.batch_out_quantity,
+                b.batch_current_stock,
+                b.batch_status,
+                b.id
+            ORDER BY
+                p.name ASC, b.batch_number ASC
+        `;
+        return await dbUtils.query(addPagination(baseQuery, pagination));
     },
 
     async getProductDetail(productId, month = null) {
@@ -121,7 +152,6 @@ const InventoryService = {
             ORDER BY month DESC
         `, [productId]);
 
-        // 查询批次库存信息
         const batchStock = await dbUtils.query(`
             SELECT 
                 batch_number, 
@@ -152,13 +182,11 @@ const InventoryService = {
 
     async cancelInStock(inRecordId) {
         return await dbUtils.executeTransaction(async (connection) => {
-            // 获取入库记录
             const inRecord = await InRecordModel.findById(inRecordId, connection);
             if (!inRecord) {
                 throw new Error('入库记录不存在');
             }
 
-            // 检查批次库存是否足够
             const batchStock = await dbUtils.queryOne(
                 'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
                 [inRecord.product_id, inRecord.batch_number],
@@ -169,23 +197,19 @@ const InventoryService = {
                 throw new Error('批次库存不足，无法撤销');
             }
 
-            // 检查总库存是否足够
             const stock = await StockModel.findByProductId(inRecord.product_id, connection);
             if (!stock || stock.current_stock < inRecord.quantity) {
                 throw new Error('总库存不足，无法撤销');
             }
 
-            // 更新批次库存
             await dbUtils.update(
                 'UPDATE batch_stock SET batch_in_quantity = batch_in_quantity - ?, batch_current_stock = batch_current_stock - ? WHERE id = ?',
                 [inRecord.quantity, inRecord.quantity, batchStock.id],
                 connection
             );
 
-            // 更新总库存（减少库存）
             await StockModel.updateStock(inRecord.product_id, 0, inRecord.quantity, connection);
 
-            // 删除入库记录
             await InRecordModel.delete(inRecordId, connection);
 
             return { success: true };
@@ -194,17 +218,14 @@ const InventoryService = {
 
     async updateInStock(inRecordId, data) {
         return await dbUtils.executeTransaction(async (connection) => {
-            // 获取原始入库记录
             const originalRecord = await InRecordModel.findById(inRecordId, connection);
             if (!originalRecord) {
                 throw new Error('入库记录不存在');
             }
 
-            // 计算数量差异
             const quantityDiff = data.quantity - originalRecord.quantity;
 
             if (quantityDiff !== 0) {
-                // 检查批次库存是否足够（如果减少库存）
                 if (quantityDiff < 0) {
                     const batchStock = await dbUtils.queryOne(
                         'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
@@ -216,14 +237,12 @@ const InventoryService = {
                         throw new Error('批次库存不足，无法修改');
                     }
 
-                    // 检查总库存是否足够
                     const stock = await StockModel.findByProductId(originalRecord.product_id, connection);
                     if (!stock || stock.current_stock < Math.abs(quantityDiff)) {
                         throw new Error('总库存不足，无法修改');
                     }
                 }
 
-                // 更新批次库存
                 const batchStock = await dbUtils.queryOne(
                     'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
                     [originalRecord.product_id, originalRecord.batch_number],
@@ -238,7 +257,6 @@ const InventoryService = {
                     );
                 }
 
-                // 更新总库存
                 if (quantityDiff > 0) {
                     await StockModel.updateStock(originalRecord.product_id, quantityDiff, 0, connection);
                 } else {
@@ -246,7 +264,6 @@ const InventoryService = {
                 }
             }
 
-            // 更新入库记录
             await InRecordModel.update(inRecordId, data, connection);
 
             return { 
@@ -261,13 +278,11 @@ const InventoryService = {
 
     async cancelOutStock(outRecordId) {
         return await dbUtils.executeTransaction(async (connection) => {
-            // 获取出库记录
             const outRecord = await OutRecordModel.findById(outRecordId, connection);
             if (!outRecord) {
                 throw new Error('出库记录不存在');
             }
 
-            // 检查批次库存
             const batchStock = await dbUtils.queryOne(
                 'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
                 [outRecord.product_id, outRecord.batch_number],
@@ -278,17 +293,14 @@ const InventoryService = {
                 throw new Error('批次库存不存在');
             }
 
-            // 更新批次库存
             await dbUtils.update(
                 'UPDATE batch_stock SET batch_out_quantity = batch_out_quantity - ?, batch_current_stock = batch_current_stock + ? WHERE id = ?',
                 [outRecord.quantity, outRecord.quantity, batchStock.id],
                 connection
             );
 
-            // 更新总库存（增加库存）
             await StockModel.updateStock(outRecord.product_id, outRecord.quantity, 0, connection);
 
-            // 删除出库记录
             await OutRecordModel.delete(outRecordId, connection);
 
             return { success: true };
@@ -297,17 +309,14 @@ const InventoryService = {
 
     async updateOutStock(outRecordId, data) {
         return await dbUtils.executeTransaction(async (connection) => {
-            // 获取原始出库记录
             const originalRecord = await OutRecordModel.findById(outRecordId, connection);
             if (!originalRecord) {
                 throw new Error('出库记录不存在');
             }
 
-            // 计算数量差异
             const quantityDiff = data.quantity - originalRecord.quantity;
 
             if (quantityDiff !== 0) {
-                // 检查批次库存是否足够（如果增加出库）
                 if (quantityDiff > 0) {
                     const batchStock = await dbUtils.queryOne(
                         'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
@@ -319,14 +328,12 @@ const InventoryService = {
                         throw new Error('批次库存不足，无法修改');
                     }
 
-                    // 检查总库存是否足够
                     const stock = await StockModel.findByProductId(originalRecord.product_id, connection);
                     if (!stock || stock.current_stock < quantityDiff) {
                         throw new Error('总库存不足，无法修改');
                     }
                 }
 
-                // 更新批次库存
                 const batchStock = await dbUtils.queryOne(
                     'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
                     [originalRecord.product_id, originalRecord.batch_number],
@@ -341,7 +348,6 @@ const InventoryService = {
                     );
                 }
 
-                // 更新总库存
                 if (quantityDiff > 0) {
                     await StockModel.updateStock(originalRecord.product_id, 0, quantityDiff, connection);
                 } else {
@@ -349,7 +355,6 @@ const InventoryService = {
                 }
             }
 
-            // 更新出库记录
             await OutRecordModel.update(outRecordId, data, connection);
 
             return { 
@@ -362,330 +367,14 @@ const InventoryService = {
         });
     },
 
-    // 获取设置
-    async getSettings() {
-        try {
-            const rows = await dbUtils.query('SELECT setting_key, setting_value FROM settings');
-            if (!rows || rows.length === 0) {
-                return null;
-            }
-            const result = {};
-            for (const row of rows) {
-                try {
-                    result[row.setting_key] = JSON.parse(row.setting_value);
-                } catch (e) {
-                    result[row.setting_key] = row.setting_value;
-                }
-            }
-            return result;
-        } catch (error) {
-            console.error('获取设置失败:', error);
-            return null;
-        }
-    },
-
-    // 保存设置
-    async saveSettings(settings) {
-        try {
-            for (const [key, value] of Object.entries(settings)) {
-                const valueJson = JSON.stringify(value);
-                const existing = await dbUtils.queryOne('SELECT id FROM settings WHERE setting_key = ?', [key]);
-
-                if (existing) {
-                    await dbUtils.update(
-                        'UPDATE settings SET setting_value = ?, updated_at = NOW() WHERE setting_key = ?',
-                        [valueJson, key]
-                    );
-                } else {
-                    await dbUtils.insert(
-                        'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)',
-                        [key, valueJson]
-                    );
-                }
-            }
-            return { success: true };
-        } catch (error) {
-            console.error('保存设置失败:', error);
-            throw error;
-        }
-    },
-
-    // 获取北京时间（UTC+8）的格式化时间字符串
-    getBeijingTimestamp() {
-        const now = new Date();
-        // 使用 Intl 获取正确的北京时间
-        const beijingTime = now.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' });
-        return beijingTime.replace(/[:.]/g, '-').slice(0, 19);
-    },
-
-    // 创建备份
-    // backupType: 'manual' | 'auto' | 'pre_delete'
-    async createBackup(createdBy, backupType = 'manual') {
-        const backupDir = path.join(process.cwd(), 'backup');
-        // 使用北京时间生成文件名时间戳
-        const timestamp = this.getBeijingTimestamp();
-
-        // 根据备份类型生成不同的文件名前缀
-        let fileNamePrefix;
-        switch (backupType) {
-            case 'auto':
-                fileNamePrefix = 'warehouse_auto_backup';
-                break;
-            case 'pre_delete':
-                fileNamePrefix = 'warehouse_pre_delete_backup';
-                break;
-            case 'manual':
-            default:
-                fileNamePrefix = 'warehouse_manual_backup';
-                break;
-        }
-        const fileName = `${fileNamePrefix}_${timestamp}.sql`;
-        const filePath = path.join(backupDir, fileName);
-
-        // 确保备份目录存在
-        if (!fsSync.existsSync(backupDir)) {
-            fsSync.mkdirSync(backupDir, { recursive: true });
-        }
-
-        // 从数据库配置文件获取连接信息（优先）或使用默认值
-        let dbHost = 'localhost';
-        let dbUser = 'root';
-        let dbPassword = '';
-        let dbName = 'warehouse';
-
-        // 尝试从配置文件读取
-        if (dbConfigObj) {
-            dbHost = dbConfigObj.host || dbHost;
-            dbUser = dbConfigObj.user || dbUser;
-            dbPassword = dbConfigObj.password || dbPassword;
-            dbName = dbConfigObj.database || dbName;
-        }
-
-        // 执行 mysqldump（使用 execFile 避免 shell 注入）
-        const mysqldumpArgs = ['-h', dbHost, '-u', dbUser];
-        if (dbPassword) {
-            mysqldumpArgs.push(`-p${dbPassword}`);
-        }
-        mysqldumpArgs.push(dbName);
-
-        try {
-            // 使用 spawn 避免 shell 注入，通过管道写入文件
-            const { spawn } = require('child_process');
-            await new Promise((resolve, reject) => {
-                const child = spawn('mysqldump', mysqldumpArgs);
-                const writeStream = fsSync.createWriteStream(filePath);
-                child.stdout.pipe(writeStream);
-                child.stderr.on('data', (data) => {});
-                child.on('close', (code) => {
-                    if (code === 0) resolve();
-                    else reject(new Error(`mysqldump exited with code ${code}`));
-                });
-                child.on('error', reject);
-            });
-
-            // 获取文件大小
-            const stats = fsSync.statSync(filePath);
-            const fileSize = (stats.size / 1024 / 1024).toFixed(2); // MB
-
-            // 获取北京时间作为创建时间（格式：YYYY-MM-DD HH:MM:SS）
-            const beijingTimeStr = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' });
-
-            // 保存备份记录到数据库
-            await dbUtils.insert(
-                'INSERT INTO backups (file_name, file_path, file_size, created_by, created_at, backup_type) VALUES (?, ?, ?, ?, ?, ?)',
-                [fileName, filePath, fileSize, createdBy, beijingTimeStr, backupType]
-            );
-
-            // 如果是自动备份，检查并清理旧的自动备份
-            if (backupType === 'auto') {
-                await this.cleanupOldAutoBackups();
-            }
-
-            return { success: true, fileName, fileSize };
-        } catch (error) {
-            // 如果失败，删除已创建的文件
-            if (fsSync.existsSync(filePath)) {
-                fsSync.unlinkSync(filePath);
-            }
-            throw new Error(`备份失败: ${error.message}`);
-        }
-    },
-
-    // 清理旧的自动备份（保留数量由配置决定）
-    async cleanupOldAutoBackups() {
-        try {
-            // 获取自动备份配置
-            const settings = await this.getSettings();
-            const config = settings?.autoBackup;
-
-            if (!config || !config.enabled || !config.retention) {
-                return; // 没有配置或禁用则不清理
-            }
-
-            const retentionCount = parseInt(config.retention);
-            if (isNaN(retentionCount) || retentionCount < 1) {
-                return;
-            }
-
-            // 获取所有自动备份，按时间排序
-            const autoBackups = await dbUtils.query(
-                'SELECT id, file_name, file_path FROM backups WHERE backup_type = ? ORDER BY created_at DESC',
-                ['auto']
-            );
-
-            // 如果自动备份数量超过保留上限，删除最旧的
-            if (autoBackups.length > retentionCount) {
-                const backupsToDelete = autoBackups.slice(retentionCount);
-                for (const backup of backupsToDelete) {
-                    // 删除文件
-                    if (fsSync.existsSync(backup.file_path)) {
-                        fsSync.unlinkSync(backup.file_path);
-                    }
-                    // 删除数据库记录
-                    await dbUtils.update('DELETE FROM backups WHERE id = ?', [backup.id]);
-                }
-            }
-        } catch (error) {
-            console.error('清理旧自动备份失败:', error);
-        }
-    },
-
-    // 获取备份列表
-    async getBackupList() {
-        try {
-            // 先同步文件夹中的备份文件
-            await this.syncBackupsFromFolder();
-
-            const backups = await dbUtils.query(
-                'SELECT id, file_name, file_size, created_by, created_at, backup_type FROM backups ORDER BY created_at DESC'
-            );
-            return backups || [];
-        } catch (error) {
-            console.error('获取备份列表失败:', error);
-            return [];
-        }
-    },
-
-    // 扫描备份文件夹，同步文件到数据库
-    async syncBackupsFromFolder() {
-        try {
-            const backupDir = path.join(process.cwd(), 'backup');
-
-            // 检查备份目录是否存在
-            if (!fsSync.existsSync(backupDir)) {
-                return;
-            }
-
-            // 读取所有 .sql 文件
-            const files = fsSync.readdirSync(backupDir).filter(f => f.endsWith('.sql'));
-
-            // 获取数据库中已有的文件名
-            const existingBackups = await dbUtils.query('SELECT file_name FROM backups');
-            const existingFileNames = new Set(existingBackups.map(b => b.file_name));
-
-            // 找出文件夹中有但数据库中没有的文件
-            for (const fileName of files) {
-                if (!existingFileNames.has(fileName)) {
-                    const filePath = path.join(backupDir, fileName);
-                    const stats = fsSync.statSync(filePath);
-                    const fileSize = (stats.size / 1024 / 1024).toFixed(2); // MB
-
-                    // 从文件名解析备份类型和时间（文件名格式：warehouse_manual_backup_YYYY-MM-DDTHH-MM-SS.sql）
-                    let createdAtStr;
-                    let backupType = 'manual'; // 默认类型
-
-                    // 匹配不同类型的备份文件名
-                    const manualMatch = fileName.match(/warehouse_manual_backup_(\d{4}-\d{2}-\d{2})T(\d{2}-\d{2}-\d{2})/);
-                    const autoMatch = fileName.match(/warehouse_auto_backup_(\d{4}-\d{2}-\d{2})T(\d{2}-\d{2}-\d{2})/);
-                    const preDeleteMatch = fileName.match(/warehouse_pre_delete_backup_(\d{4}-\d{2}-\d{2})T(\d{2}-\d{2}-\d{2})/);
-
-                    if (manualMatch) {
-                        backupType = 'manual';
-                        const datePart = manualMatch[1];
-                        const timePart = manualMatch[2].replace(/-/g, ':');
-                        createdAtStr = `${datePart} ${timePart}`;
-                    } else if (autoMatch) {
-                        backupType = 'auto';
-                        const datePart = autoMatch[1];
-                        const timePart = autoMatch[2].replace(/-/g, ':');
-                        createdAtStr = `${datePart} ${timePart}`;
-                    } else if (preDeleteMatch) {
-                        backupType = 'pre_delete';
-                        const datePart = preDeleteMatch[1];
-                        const timePart = preDeleteMatch[2].replace(/-/g, ':');
-                        createdAtStr = `${datePart} ${timePart}`;
-                    } else {
-                        // 兼容旧格式：warehouse_backup_YYYY-MM-DDTHH-MM-SS.sql
-                        const oldMatch = fileName.match(/warehouse_backup_(\d{4}-\d{2}-\d{2})T(\d{2}-\d{2}-\d{2})/);
-                        if (oldMatch) {
-                            backupType = 'manual';
-                            const datePart = oldMatch[1];
-                            const timePart = oldMatch[2].replace(/-/g, ':');
-                            createdAtStr = `${datePart} ${timePart}`;
-                        } else {
-                            // 如果解析失败，使用文件修改时间并转换为北京时间
-                            const mtime = new Date(stats.mtime);
-                            const beijingMtime = new Date(mtime.getTime() + (8 * 60 * 60 * 1000));
-                            createdAtStr = beijingMtime.toISOString().replace('T', ' ').slice(0, 19);
-                        }
-                    }
-
-                    // 插入数据库记录（使用'扫描同步'作为创建者标识）
-                    await dbUtils.insert(
-                        'INSERT INTO backups (file_name, file_path, file_size, created_by, created_at, backup_type) VALUES (?, ?, ?, ?, ?, ?)',
-                        [fileName, filePath, fileSize, '扫描同步', createdAtStr, backupType]
-                    );
-                }
-            }
-
-            // 清理数据库中有但文件夹中不存在的记录（可选）
-            for (const backup of existingBackups) {
-                const filePath = path.join(backupDir, backup.file_name);
-                if (!fsSync.existsSync(filePath)) {
-                    await dbUtils.update('DELETE FROM backups WHERE file_name = ?', [backup.file_name]);
-                }
-            }
-        } catch (error) {
-            console.error('同步备份文件夹失败:', error);
-        }
-    },
-
-    // 根据ID获取备份
-    async getBackupById(id) {
-        return await dbUtils.queryOne('SELECT * FROM backups WHERE id = ?', [id]);
-    },
-
-    // 删除备份
-    async deleteBackup(id) {
-        const backup = await this.getBackupById(id);
-        if (!backup) {
-            throw new Error('备份不存在');
-        }
-
-        // 删除文件
-        if (fsSync.existsSync(backup.file_path)) {
-            fsSync.unlinkSync(backup.file_path);
-        }
-
-        // 删除数据库记录
-        await dbUtils.update('DELETE FROM backups WHERE id = ?', [id]);
-        return { success: true };
-    },
-
     // 清理所有数据（入库记录、出库记录、库存记录，但保留商品信息和备份记录）
     async clearAllData() {
         try {
-            // 使用事务执行清理
             await dbUtils.executeTransaction(async (connection) => {
-                // 清理入库记录
                 await connection.execute('DELETE FROM in_records');
-                // 清理出库记录
                 await connection.execute('DELETE FROM out_records');
-                // 重置商品库存为0
                 await connection.execute('UPDATE products SET stock = 0');
-                // 清理批次库存
                 await connection.execute('DELETE FROM batch_stock');
-                // 重置库存汇总表
                 await connection.execute('UPDATE stock_inventory SET total_in_quantity = 0, total_out_quantity = 0, current_stock = 0, stock_status = \'out_of_stock\'');
             });
             return { success: true };
@@ -695,102 +384,43 @@ const InventoryService = {
         }
     },
 
-    // 获取自动备份配置
-    async getAutoBackupConfig() {
-        try {
-            const settings = await this.getSettings();
-            return settings?.autoBackup || { enabled: false, retention: 5 };
-        } catch (error) {
-            console.error('获取自动备份配置失败:', error);
-            return { enabled: false, retention: 5 };
-        }
-    },
-
-    // 保存自动备份配置
-    async saveAutoBackupConfig(config) {
-        try {
-            const settings = await this.getSettings() || {};
-            settings.autoBackup = config;
-            return await this.saveSettings(settings);
-        } catch (error) {
-            console.error('保存自动备份配置失败:', error);
-            throw error;
-        }
-    },
-
-    // 恢复备份
-    async restoreBackup(id) {
-        const backup = await this.getBackupById(id);
-        if (!backup) {
-            throw new Error('备份不存在');
-        }
-
-        if (!fsSync.existsSync(backup.file_path)) {
-            throw new Error('备份文件不存在');
-        }
-
-        // 从数据库配置文件获取连接信息
-        let dbHost = 'localhost';
-        let dbUser = 'root';
-        let dbPassword = '';
-        let dbName = 'warehouse';
-
-        if (dbConfigObj) {
-            dbHost = dbConfigObj.host || dbHost;
-            dbUser = dbConfigObj.user || dbUser;
-            dbPassword = dbConfigObj.password || dbPassword;
-            dbName = dbConfigObj.database || dbName;
-        }
-
-        // 执行恢复（使用 spawn 避免 shell 注入，通过 stdin 传入文件内容）
-        const mysqlArgs = ['-h', dbHost, '-u', dbUser, dbName];
-        if (dbPassword) {
-            mysqlArgs.push(`-p${dbPassword}`);
-        }
-        const { spawn } = require('child_process');
-        await new Promise((resolve, reject) => {
-            const child = spawn('mysql', mysqlArgs);
-            const readStream = fsSync.createReadStream(backup.file_path);
-            readStream.pipe(child.stdin);
-            child.stdin.on('end', () => {});
-            child.stderr.on('data', () => {});
-            child.on('close', (code) => {
-                if (code === 0) resolve();
-                else reject(new Error(`mysql exited with code ${code}`));
-            });
-            child.on('error', reject);
-        });
-        return { success: true };
-    },
-
-
-
     // 修改密码
     async changePassword(userId, currentPassword, newPassword) {
-        // 获取用户当前密码
         const user = await dbUtils.queryOne('SELECT password FROM users WHERE id = ?', [userId]);
         if (!user) {
             return { success: false, message: '用户不存在' };
         }
 
-        // 验证当前密码
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
             return { success: false, message: '当前密码不正确' };
         }
 
-        // 加密新密码
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-        // 更新密码
         await dbUtils.update(
             'UPDATE users SET password = ? WHERE id = ?',
             [hashedPassword, userId]
         );
 
         return { success: true };
-    }
+    },
+
+    // ===== Settings delegation =====
+    getSettings: () => SettingsService.getSettings(),
+    saveSettings: (s) => SettingsService.saveSettings(s),
+
+    // ===== Backup delegation =====
+    createBackup: (...args) => BackupService.createBackup(...args),
+    cleanupOldAutoBackups: () => BackupService.cleanupOldAutoBackups(),
+    getBackupList: () => BackupService.getBackupList(),
+    syncBackupsFromFolder: () => BackupService.syncBackupsFromFolder(),
+    getBackupById: (id) => BackupService.getBackupById(id),
+    deleteBackup: (id) => BackupService.deleteBackup(id),
+    restoreBackup: (id) => BackupService.restoreBackup(id),
+    getAutoBackupConfig: () => BackupService.getAutoBackupConfig(),
+    saveAutoBackupConfig: (config) => BackupService.saveAutoBackupConfig(config)
 };
 
 module.exports = InventoryService;

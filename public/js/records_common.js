@@ -11,10 +11,7 @@ async function checkAuth() {
                 currentUserElement.textContent = `欢迎, ${data.username}`;
             }
         }
-    } catch (error) {
-        console.error('检查登录状态失败:', error);
-        window.location.href = 'login.html';
-    }
+    } catch (error) { console.error(error); }
 }
 
 // 退出登录

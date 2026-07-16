@@ -33,10 +33,7 @@ async function checkLogin() {
                     // 初始化商品信息显示
                     showProductInfo();
                 }
-            } catch (error) {
-                console.error('检查登录状态失败:', error);
-                window.location.href = 'login.html';
-            }
+            } catch (error) { console.error(error); }
         }
 
         async function loadStockMethods(type) {
@@ -317,6 +314,7 @@ async function checkLogin() {
         function setupSupplierAutocomplete() {
             const sourceInput = document.getElementById('source');
             const suggestionsContainer = document.getElementById('supplierSuggestions');
+            if (!sourceInput) return;
             let debounceTimer;
             let selectedIndex = -1;
             let currentSuppliers = [];
@@ -326,14 +324,15 @@ async function checkLogin() {
                 selectedIndex = -1;
                 const query = this.value.trim();
 
-                if (query.length >= 2) {
+                if (query.length >= 1) {
                     debounceTimer = setTimeout(async () => {
                         try {
-                            const response = await fetch(`/api/suppliers?query=${encodeURIComponent(query)}`);
+                            const response = await fetch(`/api/suppliers/search?query=${encodeURIComponent(query)}`);
                             if (!response.ok) {
                                 throw new Error(`HTTP错误: ${response.status}`);
                             }
-                            currentSuppliers = await response.json();
+                            const result = await response.json();
+                            currentSuppliers = (result.data || []).map(s => s.name || s);
                             showSupplierSuggestions(currentSuppliers);
                         } catch (error) {
                             console.error('获取供应商列表失败:', error);
@@ -384,15 +383,25 @@ async function checkLogin() {
             }
 
             function showSupplierSuggestions(suppliers) {
+                if (!suggestionsContainer) return;
                 suggestionsContainer.innerHTML = '';
                 selectedIndex = -1;
-                if (suppliers.length > 0) {
-                    suppliers.forEach((supplier, index) => {
+                const query = sourceInput.value.trim();
+                // Add typed text as first option if it doesn't match any existing supplier
+                let allSuggestions = [...suppliers];
+                if (query && !suppliers.includes(query)) {
+                    allSuggestions.unshift(query);
+                }
+                if (allSuggestions.length > 0) {
+                    allSuggestions.forEach((supplier, index) => {
                         const suggestionItem = document.createElement('div');
                         suggestionItem.className = 'suggestion-item p-2 cursor-pointer';
                         suggestionItem.style.borderBottom = '1px solid #f0f0f0';
                         suggestionItem.style.transition = 'background-color 0.15s';
                         suggestionItem.textContent = supplier;
+                        if (index === 0 && !suppliers.includes(query)) {
+                            suggestionItem.innerHTML = '<span class="text-primary"><i class="bi bi-plus-circle me-1"></i>新增: </span>' + supplier;
+                        }
                         suggestionItem.dataset.index = index;
 
                         suggestionItem.addEventListener('mouseenter', () => {
@@ -414,6 +423,7 @@ async function checkLogin() {
             }
 
             function hideSupplierSuggestions() {
+                if (!suggestionsContainer) return;
                 suggestionsContainer.classList.add('d-none');
                 selectedIndex = -1;
                 currentSuppliers = [];
@@ -421,7 +431,7 @@ async function checkLogin() {
 
             // 点击页面其他地方关闭建议列表
             document.addEventListener('click', function(event) {
-                if (!sourceInput.contains(event.target) && !suggestionsContainer.contains(event.target)) {
+                if (suggestionsContainer && !sourceInput.contains(event.target) && !suggestionsContainer.contains(event.target)) {
                     hideSupplierSuggestions();
                 }
             });
@@ -431,13 +441,14 @@ async function checkLogin() {
         function setupBatchAutocomplete() {
             const batchInput = document.getElementById('batch_number');
             const suggestionsContainer = document.getElementById('batchSuggestions');
+            if (!batchInput) return;
             let debounceTimer;
 
             batchInput.addEventListener('input', function() {
                 clearTimeout(debounceTimer);
                 const query = this.value.trim();
 
-                if (query.length >= 2) {
+                if (query.length >= 1) {
                     debounceTimer = setTimeout(async () => {
                         try {
                             const response = await fetch(`/api/product-batches?query=${encodeURIComponent(query)}`);
@@ -457,6 +468,7 @@ async function checkLogin() {
             });
 
             function showBatchSuggestions(batches) {
+                if (!suggestionsContainer) return;
                 suggestionsContainer.innerHTML = '';
                 if (batches.length > 0) {
                     batches.forEach(batch => {
@@ -476,12 +488,13 @@ async function checkLogin() {
             }
 
             function hideBatchSuggestions() {
+                if (!suggestionsContainer) return;
                 suggestionsContainer.classList.add('d-none');
             }
 
             // 点击页面其他地方关闭建议列表
             document.addEventListener('click', function(event) {
-                if (!batchInput.contains(event.target) && !suggestionsContainer.contains(event.target)) {
+                if (suggestionsContainer && !batchInput.contains(event.target) && !suggestionsContainer.contains(event.target)) {
                     hideBatchSuggestions();
                 }
             });

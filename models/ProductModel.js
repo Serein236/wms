@@ -1,5 +1,6 @@
 // models/ProductModel.js
 const dbUtils = require('../utils/dbUtils');
+const { addPagination } = require('../utils/pagination');
 
 const ProductModel = {
     async findAll() {
@@ -9,6 +10,34 @@ const ProductModel = {
             LEFT JOIN stock_inventory s ON p.id = s.product_id
             ORDER BY p.id DESC
         `);
+    },
+
+    async countAll(query) {
+        let whereClause = '';
+        const params = [];
+        if (query) {
+            whereClause = 'WHERE name LIKE ? OR product_code LIKE ? OR spec LIKE ?';
+            params.push(`%${query}%`, `%${query}%`, `%${query}%`);
+        }
+        const result = await dbUtils.queryOne(`SELECT COUNT(*) as count FROM products ${whereClause}`, params);
+        return result ? result.count : 0;
+    },
+
+    async findAllPaginated(pagination, query) {
+        let whereClause = '';
+        const params = [];
+        if (query) {
+            whereClause = 'WHERE p.name LIKE ? OR p.product_code LIKE ? OR p.spec LIKE ?';
+            params.push(`%${query}%`, `%${query}%`, `%${query}%`);
+        }
+        const baseQuery = `
+            SELECT p.*, s.warning_quantity, s.danger_quantity, s.current_stock as stock
+            FROM products p
+            LEFT JOIN stock_inventory s ON p.id = s.product_id
+            ${whereClause}
+            ORDER BY p.id DESC
+        `;
+        return await dbUtils.query(addPagination(baseQuery, pagination), params);
     },
 
     async findById(id) {

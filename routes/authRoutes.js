@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const { requireAdmin } = require('../middleware/auth');
+const { generateToken } = require('../middleware/csrf');
+const { loginLimiter } = require('../middleware/rateLimiter');
 
 /**
  * @swagger
@@ -47,7 +49,7 @@ const { requireAdmin } = require('../middleware/auth');
  *                 message:
  *                   type: string
  */
-router.post('/login', authController.login);
+router.post('/login', loginLimiter, authController.login);
 
 /**
  * @swagger
@@ -68,6 +70,29 @@ router.post('/login', authController.login);
  *                   type: boolean
  */
 router.post('/logout', authController.logout);
+
+/**
+ * @swagger
+ * /auth/csrf-token:
+ *   get:
+ *     summary: 获取CSRF令牌
+ *     description: 获取用于CSRF保护的令牌
+ *     tags: [认证]
+ *     responses:
+ *       200:
+ *         description: 返回CSRF令牌
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 csrfToken:
+ *                   type: string
+ */
+router.get('/csrf-token', (req, res) => {
+    const token = generateToken(req);
+    res.json({ csrfToken: token });
+});
 
 /**
  * @swagger

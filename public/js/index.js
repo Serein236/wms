@@ -12,10 +12,7 @@ async function checkLogin() {
                     document.getElementById('currentUser').textContent = `欢迎, ${data.username}`;
                     loadDashboardData();
                 }
-            } catch (error) {
-                console.error('检查登录状态失败:', error);
-                window.location.href = 'login.html';
-            }
+            } catch (error) { console.error(error); }
         }
 
         async function loadDashboardData() {

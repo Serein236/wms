@@ -33,6 +33,17 @@ router.use(requireLogin);
  */
 router.get('/', productController.getAllProducts);
 
+router.get('/barcode/:barcode', async (req, res) => {
+    const ProductModel = require('../models/ProductModel');
+    try {
+        const product = await ProductModel.findByBarcode(req.params.barcode);
+        if (!product) return res.status(404).json({ success: false, message: '未找到该条码对应的商品' });
+        res.json({ success: true, data: product });
+    } catch (error) {
+        res.status(500).json({ success: false, message: '查询失败' });
+    }
+});
+
 /**
  * @swagger
  * /products:

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>供应商管理 - 仓库管理系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="css/common.css" rel="stylesheet">
+    <link href="css/modern.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="index.html"><i class="bi bi-warehouse me-2"></i>仓库管理系统</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-house-door me-1"></i>首页</a></li>
+                    <li class="nav-item"><a class="nav-link" href="product_list.html"><i class="bi bi-box-seam me-1"></i>商品管理</a></li>
+                    <li class="nav-item"><a class="nav-link" href="in.html"><i class="bi bi-arrow-down-circle me-1"></i>入库</a></li>
+                    <li class="nav-item"><a class="nav-link" href="out.html"><i class="bi bi-arrow-up-circle me-1"></i>出库</a></li>
+                    <li class="nav-item"><a class="nav-link" href="stock.html"><i class="bi bi-clipboard-data me-1"></i>库存</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="suppliers.html"><i class="bi bi-truck me-1"></i>供应商</a></li>
+                    <li class="nav-item"><a class="nav-link" href="dashboard.html"><i class="bi bi-bar-chart me-1"></i>看板</a></li>
+                    <li class="nav-item"><a class="nav-link" href="batch.html"><i class="bi bi-list-columns me-1"></i>批量</a></li>
+                    <li class="nav-item"><a class="nav-link" href="stocktaking.html"><i class="bi bi-clipboard-check me-1"></i>盘点</a></li>
+                    <li class="nav-item"><a class="nav-link" href="settings.html"><i class="bi bi-gear me-1"></i>设置</a></li>
+                </ul>
+                <div class="d-flex align-items-center text-white">
+                    <span id="currentUser" class="me-3"></span>
+                    <button class="btn btn-outline-light btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right me-1"></i>退出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid main-content">
+        <div class="page-header">
+            <h2 class="mb-1"><i class="bi bi-truck me-2"></i>供应商管理</h2>
+            <p class="mb-0">管理供应商信息，包括联系人、电话、地址等</p>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div><i class="bi bi-truck me-2"></i>供应商列表 <span class="badge bg-primary ms-2" id="supplierCountBadge">0</span></div>
+                <div class="d-flex gap-2">
+                    <div class="input-group input-group-sm" style="width: 250px;">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="searchInput" placeholder="搜索供应商名称..." oninput="debounceSearch()">
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="showAddModal()"><i class="bi bi-plus-circle me-1"></i>新增供应商</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead><tr><th>序号</th><th>供应商名称</th><th>联系人</th><th>联系电话</th><th>邮箱</th><th>地址</th><th>状态</th><th>操作</th></tr></thead>
+                        <tbody id="supplierTable"></tbody>
+                    </table>
+                </div>
+                <div id="emptyState" class="text-center text-muted py-5 d-none"><i class="bi bi-inbox fs-1"></i><p class="mt-2">暂无供应商数据</p></div>
+            </div>
+            <div id="paginationControls" class="card-footer"></div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="supplierModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="supplierModalTitle">新增供应商</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="supplierId">
+                    <div class="mb-3"><label class="form-label">供应商名称 <span class="text-danger">*</span></label><input type="text" class="form-control" id="supplierName"></div>
+                    <div class="row">
+                        <div class="col-md-6"><div class="mb-3"><label class="form-label">联系人</label><input type="text" class="form-control" id="supplierContact"></div></div>
+                        <div class="col-md-6"><div class="mb-3"><label class="form-label">联系电话</label><input type="text" class="form-control" id="supplierPhone"></div></div>
+                    </div>
+                    <div class="mb-3"><label class="form-label">邮箱</label><input type="email" class="form-control" id="supplierEmail"></div>
+                    <div class="mb-3"><label class="form-label">地址</label><input type="text" class="form-control" id="supplierAddress"></div>
+                    <div class="mb-3"><label class="form-label">备注</label><textarea class="form-control" id="supplierRemark" rows="3"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSupplier()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer><div class="container">&copy; 2026 仓库管理系统 | <a href="https://beian.miit.gov.cn/" target="_blank" class="text-decoration-none text-reset">鄂ICP备2025167566号</a></div></footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/pagination.js"></script>
+    <script src="js/suppliers.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var b = document.querySelector('footer a[href*="beian.miit.gov.cn"]');
+            if (b && config && config.beian) b.textContent = config.beian;
+        });
+    </script>
+</body>
+</html>

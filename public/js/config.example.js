@@ -1,11 +1,8 @@
-// 系统配置文件
-const config = {
-    // 备案号
-    beian: '备案号',
-    
-    // 系统信息
-    system: {
-        name: '仓库管理系统',
-        year: '2026'
-    }
+// 复制此文件为 config.js 并修改配置
+var CONFIG = {
+    companyName: '公司名称',
+    address: '公司地址',
+    phone: '联系电话',
+    icp: '',
+    icpUrl: ''
 };

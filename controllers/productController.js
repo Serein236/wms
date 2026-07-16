@@ -1,6 +1,7 @@
 // controllers/productController.js
 const ProductModel = require('../models/ProductModel');
 const logger = require('../utils/logger');
+const { parsePagination, buildPaginationResponse } = require('../utils/pagination');
 
 /**
  * 商品控制器
@@ -24,11 +25,21 @@ const productController = {
     async getAllProducts(req, res) {
         const username = req.session.username;
         const userId = req.session.userId;
-        
+        const { query } = req.query;
+
         try {
-            const products = await ProductModel.findAll();
-            logger.query('获取商品列表', {}, username, userId, products.length);
-            res.json(products);
+            // If no pagination params, return all results (backward compatibility)
+            if (!req.query.page && !req.query.pageSize) {
+                const products = await ProductModel.findAll();
+                logger.query('获取商品列表', {}, username, userId, products.length);
+                return res.json(products);
+            }
+
+            const pagination = parsePagination(req.query);
+            const total = await ProductModel.countAll(query);
+            const products = await ProductModel.findAllPaginated(pagination, query);
+            logger.query('获取商品列表', { query }, username, userId, products.length);
+            res.json({ success: true, data: products, pagination: buildPaginationResponse(total, pagination) });
         } catch (error) {
             console.error('获取商品错误:', error);
             logger.error('获取商品失败', { operator: username, operatorId: userId, error: error.message });

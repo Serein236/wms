@@ -52,10 +52,19 @@ const authController = {
             const isValid = await bcrypt.compare(password, user.password);
 
             if (isValid) {
-                req.session.userId = user.id;
-                req.session.username = user.username;
-                logger.login(user.username, user.id);
-                res.json({ success: true, role: user.role });
+                const userId = user.id;
+                const username = user.username;
+                const role = user.role;
+                req.session.regenerate((err) => {
+                    if (err) {
+                        console.error('Session regeneration failed:', err);
+                        return res.status(500).json({ success: false, message: '登录失败' });
+                    }
+                    req.session.userId = userId;
+                    req.session.username = username;
+                    logger.login(username, userId);
+                    res.json({ success: true, role });
+                });
             } else {
                 logger.warn('登录失败', { operator: username, operatorId: user.id, description: '密码错误' });
                 res.json({

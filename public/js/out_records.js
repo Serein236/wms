@@ -5,6 +5,59 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+let allOutRecordsData = [];
+
+function filterOutRecords() {
+    const searchQuery = (document.getElementById('outSearchInput')?.value || '').trim().toLowerCase();
+    const monthFilter = document.getElementById('filterMonth')?.value || '';
+    let filtered = allOutRecordsData;
+
+    if (searchQuery) {
+        filtered = filtered.filter(item =>
+            (item.product_name || '').toLowerCase().includes(searchQuery) ||
+            (item.destination || '').toLowerCase().includes(searchQuery) ||
+            (item.batch_number || '').toLowerCase().includes(searchQuery)
+        );
+    }
+    if (monthFilter) {
+        filtered = filtered.filter(item => {
+            const d = item.display_date || item.recorded_date || '';
+            return d.startsWith(monthFilter);
+        });
+    }
+
+    const tbody = document.getElementById('outRecordsBody');
+    const emptyState = document.getElementById('emptyState');
+    if (!filtered.length) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('d-none');
+        return;
+    }
+    emptyState.classList.add('d-none');
+    tbody.innerHTML = filtered.map(record => `
+        <tr>
+            <td><input type="checkbox" class="record-checkbox" data-id="${record.id}"></td>
+            <td>${record.id}</td>
+            <td>${escapeHtml(record.product_name)}</td>
+            <td>${escapeHtml(record.stock_method_name) || '-'}</td>
+            <td>${escapeHtml(record.batch_number) || '-'}</td>
+            <td>${record.quantity}</td>
+            <td>¥${formatMoney(record.unit_price)}</td>
+            <td>¥${formatMoney(record.total_amount)}</td>
+            <td>${escapeHtml(record.destination) || '-'}</td>
+            <td>${record.display_date || '-'}</td>
+            <td>${escapeHtml(record.remark) || '-'}</td>
+            <td>${formatDate(record.created_at)}</td>
+            <td>
+                <button class="btn btn-sm btn-info btn-action" onclick="viewOutOrder(${record.id})"><i class="bi bi-eye me-1"></i>查看</button>
+                <button class="btn btn-sm btn-success btn-action" onclick="exportOutOrder(${record.id})"><i class="bi bi-download me-1"></i>导出</button>
+                <button class="btn btn-sm btn-warning btn-action" onclick="editOutRecord(${record.id})"><i class="bi bi-pencil-square me-1"></i>修改</button>
+                <button class="btn btn-sm btn-danger btn-action" onclick="cancelOutRecord(${record.id})"><i class="bi bi-x-circle me-1"></i>撤销</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
 function formatMoney(val) {
     if (val == null || val === '') return '0.00';
     const n = parseFloat(val);
@@ -15,12 +68,14 @@ function formatMoney(val) {
 function getCompanyName() {
     const settings = localStorage.getItem('warehouse_settings');
     if (settings) {
-        const parsed = JSON.parse(settings);
-        if (parsed.company && parsed.company.name) {
-            return parsed.company.name;
-        }
+        try {
+            const parsed = JSON.parse(settings);
+            if (parsed.company && parsed.company.name) {
+                return parsed.company.name;
+            }
+        } catch (e) {}
     }
-    return '公司名称未设置，请到设置中设置！';
+    return (typeof config !== 'undefined' && config.companyName) ? config.companyName : '出库单';
 }
 
 // 格式化时间戳为日期
@@ -39,16 +94,16 @@ function numToChinese(num) {
     const digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
     const units = ['', '拾', '佰', '仟'];
     const bigUnits = ['', '万', '亿'];
-    
+
     if (num === 0) return '零元整';
-    
+
     let integerPart = Math.floor(num);
     let decimalPart = Math.round((num - integerPart) * 100);
-    
+
     let result = '';
     let unitIndex = 0;
     let bigUnitIndex = 0;
-    
+
     while (integerPart > 0) {
         let section = integerPart % 10000;
         if (section > 0) {
@@ -71,9 +126,9 @@ function numToChinese(num) {
         integerPart = Math.floor(integerPart / 10000);
         bigUnitIndex++;
     }
-    
+
     result += '元';
-    
+
     if (decimalPart === 0) {
         result += '整';
     } else {
@@ -86,59 +141,82 @@ function numToChinese(num) {
             result += digits[fen] + '分';
         }
     }
-    
+
     return result;
 }
 
+// 分页状态
+let outRecordsPagination = PaginationHelper.getDefaultState();
+
 // 加载出库记录
-async function loadOutRecords() {
+async function loadOutRecords(page) {
     const loadingDiv = document.getElementById('loading');
     const errorDiv = document.getElementById('error');
     const emptyStateDiv = document.getElementById('emptyState');
     const recordsBody = document.getElementById('outRecordsBody');
     const recordCountDiv = document.getElementById('recordCount');
-    
+    const paginationDiv = document.getElementById('paginationControls');
+
+    if (page) outRecordsPagination.page = page;
+
     // 显示加载状态
     loadingDiv.classList.remove('d-none');
     errorDiv.classList.add('d-none');
     emptyStateDiv.classList.add('d-none');
-    
+
     try {
-        // 请求所有出库记录
-        const response = await fetch('/api/out-records');
+        // 获取月份筛选条件
+        const filterMonth = document.getElementById('filterMonth')?.value;
+
+        // 请求出库记录（带分页参数）
+        const params = {};
+        if (filterMonth) params.month = filterMonth;
+        const url = PaginationHelper.buildUrl('/api/out-records', params, outRecordsPagination);
+        const response = await fetch(url);
         if (!response.ok) {
             throw new Error('加载出库记录失败');
         }
-        
-        let outRecords = await response.json();
-        
-        // 获取月份筛选条件
-        const filterMonth = document.getElementById('filterMonth')?.value;
-        
-        // 按月份筛选
-        if (filterMonth) {
-            outRecords = outRecords.filter(record => {
-                if (!record.recorded_date) return false;
-                const recordMonth = record.recorded_date.substring(0, 7); // 获取YYYY-MM格式
-                return recordMonth === filterMonth;
-            });
-        }
-        
+
+        const result = await response.json();
+
         // 隐藏加载状态
         loadingDiv.classList.add('d-none');
-        
+
+        // Handle both paginated and non-paginated responses
+        let outRecords;
+        if (result.success && result.data) {
+            outRecords = result.data;
+            outRecordsPagination = { ...outRecordsPagination, ...result.pagination };
+        } else {
+            outRecords = result;
+            // Client-side month filtering for non-paginated responses
+            if (filterMonth) {
+                outRecords = outRecords.filter(record => {
+                    if (!record.recorded_date) return false;
+                    const recordMonth = record.recorded_date.substring(0, 7);
+                    return recordMonth === filterMonth;
+                });
+            }
+        }
+        allOutRecordsData = outRecords;
+
         // 显示记录数量
-        recordCountDiv.textContent = `共 ${outRecords.length} 条记录`;
-        
+        if (result.pagination) {
+            recordCountDiv.textContent = `共 ${result.pagination.total} 条记录，第 ${result.pagination.page}/${result.pagination.totalPages} 页`;
+        } else {
+            recordCountDiv.textContent = `共 ${outRecords.length} 条记录`;
+        }
+
         // 清空表格
         recordsBody.innerHTML = '';
-        
+
         if (outRecords.length === 0) {
             // 显示空状态
             emptyStateDiv.classList.remove('d-none');
+            if (paginationDiv) paginationDiv.innerHTML = '';
             return;
         }
-        
+
         // 渲染出库记录
         outRecords.forEach(record => {
             const row = document.createElement('tr');
@@ -172,7 +250,7 @@ async function loadOutRecords() {
             `;
             recordsBody.appendChild(row);
         });
-        
+
         // 添加全选功能
         document.getElementById('selectAll').addEventListener('change', function() {
             const checkboxes = document.querySelectorAll('.record-checkbox');
@@ -180,7 +258,12 @@ async function loadOutRecords() {
                 checkbox.checked = this.checked;
             });
         });
-        
+
+        // Render pagination controls
+        if (paginationDiv && result.pagination) {
+            paginationDiv.innerHTML = PaginationHelper.render(result.pagination, 'loadOutRecords');
+        }
+
     } catch (error) {
         console.error('加载出库记录失败:', error);
         loadingDiv.classList.add('d-none');
@@ -195,6 +278,7 @@ function clearMonthFilter() {
     if (filterMonth) {
         filterMonth.value = '';
     }
+    outRecordsPagination.page = 1;
     loadOutRecords();
 }
 
@@ -202,7 +286,7 @@ function clearMonthFilter() {
 async function initOutRecordsPage() {
     // 初始化公共部分
     await recordsCommon.initPage();
-    
+
     // 处理URL参数中的月份筛选
     const urlParams = new URLSearchParams(window.location.search);
     const monthParam = urlParams.get('month');
@@ -215,13 +299,26 @@ async function initOutRecordsPage() {
 
     // 绑定月份筛选事件
     if (filterMonth) {
-        filterMonth.addEventListener('change', loadOutRecords);
+        filterMonth.addEventListener('change', () => {
+            outRecordsPagination.page = 1;
+            loadOutRecords();
+        });
     }
 
     // 绑定清除按钮事件
     const clearMonthBtn = document.getElementById('clearMonthBtn');
     if (clearMonthBtn) {
         clearMonthBtn.addEventListener('click', clearMonthFilter);
+    }
+
+    // Search input event
+    const searchInput = document.getElementById('outSearchInput');
+    if (searchInput) {
+        let searchTimer;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => filterOutRecords(), 300);
+        });
     }
 
     // 加载出库记录
@@ -245,10 +342,10 @@ async function viewOutOrder(recordId) {
             throw new Error('获取出库记录失败');
         }
         const record = await response.json();
-        
+
         // 生成出库单单号
         const orderNumber = generateOrderNumber(record);
-        
+
         // 确保所有字段都有值
         const productCode = record.product_code !== undefined ? record.product_code : '-';
         const spec = record.spec !== undefined ? record.spec : '-';
@@ -257,7 +354,7 @@ async function viewOutOrder(recordId) {
         const retailPrice = record.retail_price !== undefined ? '¥' + formatMoney(record.retail_price) : '-';
         const productionDate = record.production_date !== undefined ? record.production_date : '-';
         const expirationDate = record.expiration_date !== undefined ? record.expiration_date : '-';
-        
+
         // 生成出库单HTML
         let orderHtml = `
             <div class="container">
@@ -345,7 +442,7 @@ async function viewOutOrder(recordId) {
                 </div>
             </div>
         `;
-        
+
         // 创建模态框
         const modal = document.createElement('div');
         modal.className = 'modal fade show';
@@ -357,59 +454,59 @@ async function viewOutOrder(recordId) {
         modal.style.width = '100%';
         modal.style.height = '100%';
         modal.style.zIndex = '1050';
-        
+
         // 创建模态框内容
         const modalDialog = document.createElement('div');
         modalDialog.className = 'modal-dialog modal-xl';
         modalDialog.style.margin = '1.75rem auto';
         modalDialog.style.maxWidth = '90%';
-        
+
         const modalContent = document.createElement('div');
         modalContent.className = 'modal-content';
-        
+
         const modalHeader = document.createElement('div');
         modalHeader.className = 'modal-header';
         modalHeader.innerHTML = `
             <h5 class="modal-title">出库单详情</h5>
             <button type="button" class="btn-close" aria-label="Close"></button>
         `;
-        
+
         const modalBody = document.createElement('div');
         modalBody.className = 'modal-body';
         modalBody.innerHTML = orderHtml;
-        
+
         const modalFooter = document.createElement('div');
         modalFooter.className = 'modal-footer';
         modalFooter.innerHTML = `
             <button type="button" class="btn btn-secondary">关闭</button>
             <button type="button" class="btn btn-success"><i class="bi bi-download me-1"></i>导出</button>
         `;
-        
+
         // 组装模态框
         modalContent.appendChild(modalHeader);
         modalContent.appendChild(modalBody);
         modalContent.appendChild(modalFooter);
         modalDialog.appendChild(modalContent);
         modal.appendChild(modalDialog);
-        
+
         document.body.appendChild(modal);
         document.body.style.overflow = 'hidden'; // 防止背景滚动
-        
+
         // 添加关闭事件
         modalHeader.querySelector('.btn-close').addEventListener('click', function() {
             modal.remove();
             document.body.style.overflow = '';
         });
-        
+
         modalFooter.querySelector('.btn-secondary').addEventListener('click', function() {
             modal.remove();
             document.body.style.overflow = '';
         });
-        
+
         modalFooter.querySelector('.btn-success').addEventListener('click', function() {
             showExportModal(record.id);
         });
-        
+
         // 点击模态框背景关闭
         modal.addEventListener('click', function(e) {
             if (e.target === modal) {
@@ -417,7 +514,7 @@ async function viewOutOrder(recordId) {
                 document.body.style.overflow = '';
             }
         });
-        
+
     } catch (error) {
         console.error('查看出库单失败:', error);
         alert('查看出库单失败: ' + error.message);
@@ -462,7 +559,7 @@ function showExportModal(recordId) {
         </div>
     `;
     document.body.appendChild(modal);
-    
+
     // 添加关闭模态框的点击事件
     modal.addEventListener('click', function(e) {
         if (e.target === modal) {
@@ -478,26 +575,26 @@ async function exportOutOrder(recordId) {
         const consigneeElement = document.getElementById('consignee');
         const consigneeAddressElement = document.getElementById('consigneeAddress');
         const consigneePhoneElement = document.getElementById('consigneePhone');
-        
+
         const consignee = consigneeElement ? consigneeElement.value || '-' : '-';
         const consigneeAddress = consigneeAddressElement ? consigneeAddressElement.value || '-' : '-';
         const consigneePhone = consigneePhoneElement ? consigneePhoneElement.value || '-' : '-';
-        
+
         // 关闭导出模态框
         const exportModals = document.querySelectorAll('.modal.show');
         exportModals.forEach(modal => {
             modal.remove();
         });
-        
+
         const response = await fetch(`/api/out-records/${recordId}?t=${Date.now()}`);
         if (!response.ok) {
             throw new Error('获取出库记录失败');
         }
         const record = await response.json();
-        
+
         // 生成出库单单号
         const orderNumber = generateOrderNumber(record);
-        
+
         // 确保所有字段都有值
         const productCode = record.product_code || '-';
         const spec = record.spec || '-';
@@ -506,30 +603,30 @@ async function exportOutOrder(recordId) {
         const retailPrice = record.retail_price ? formatMoney(record.retail_price) : '-';
         const productionDate = record.production_date || '-';
         const expirationDate = record.expiration_date || '-';
-        
+
         // 格式化日期为 YYYY/MM/DD 格式
         function formatDate(dateStr) {
             if (!dateStr || dateStr === '-') return '-';
             const date = new Date(dateStr);
             return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
         }
-        
+
         // 格式化数据
         const formattedDate = record.display_date ? formatDate(record.display_date) : '-';
         const formattedProductionDate = productionDate !== '-' ? formatDate(productionDate) : '-';
         const formattedExpirationDate = expirationDate !== '-' ? formatDate(expirationDate) : '-';
         const formattedRetailPrice = retailPrice !== '-' ? parseFloat(retailPrice).toFixed(2) : '-';
-        
+
         // 生成CSV内容（按照第一个图片的格式）
         let csvContent = `data:text/csv;charset=utf-8,\uFEFF,,${getCompanyName()}销售出库单,,,,,,\n\n,,,,单号：${orderNumber},转入单号：,,\n开单日期：,${formattedDate},客户名称：,${record.destination || '-'},生产厂家：,${manufacturer},,,\n收货人：,${consignee},收货地址：,${consigneeAddress},收货联系电话：,${consigneePhone},,,\n\n序号,产品编码,品牌,品名,产品规格,单位,数量,单价,金额/元,产品批号,生产日期,有效期,零售价,备注\n1,${productCode},,${record.product_name},${spec},${unit},${record.quantity},${formatMoney(record.unit_price)},${formatMoney(record.total_amount)},${record.batch_number || '-'},${formattedProductionDate},${formattedExpirationDate},${formattedRetailPrice},${record.remark || '-'}\n\n合计金额人民币（小写）：,,,,,,,,${formatMoney(record.total_amount)},共 1 件,,\n合计金额人民币（大写）：,,,,,,,,${numToChinese(parseFloat(record.total_amount))},,,\n\n制单人：,,审核人：,,销售负责人：,,客户收货人：,,\n\n（一式四联：白色存根联 黄色回单联 红色客户联为财务对账联）,,,,,,\n注意事项：客户签收表示购销双方权利义务已确认，货品如有差错，请三天内来电说明（与销售负责人联系），每次发货同行的厂检请保存好,,,,,,`;
-        
+
         try {
             // 使用ExcelJS导出
             if (typeof ExcelJS !== 'undefined') {
                 // 创建工作簿
                 const workbook = new ExcelJS.Workbook();
                 const worksheet = workbook.addWorksheet('销售出库单');
-                
+
                 // 设置列宽
                 worksheet.columns = [
                     { width: 8 },   // A: 序号
@@ -546,7 +643,7 @@ async function exportOutOrder(recordId) {
                     { width: 10 },  // L: 零售价
                     { width: 16 }   // M: 备注
                 ];
-                
+
                 // 添加标题行（第1行）
                 const titleRow = worksheet.addRow([`${getCompanyName()}销售出库单`]);
                 worksheet.mergeCells('A1:M1');
@@ -555,30 +652,30 @@ async function exportOutOrder(recordId) {
                 titleCell.alignment = { horizontal: 'center', vertical: 'center' };
                 titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
                 worksheet.getRow(1).height = 35;
-                
+
                 // 空行（第2行）
                 worksheet.addRow([]);
-                
+
                 // 单号行（第3行）
                 worksheet.addRow([`单号：${orderNumber}`, '', '', '', '', '', '', '', '', '', '', '转入单号：', '']);
                 worksheet.mergeCells('A3:D3');
                 worksheet.mergeCells('L3:M3');
-                
+
                 // 开单日期行（第4行）
                 worksheet.addRow(['开单日期：', formattedDate, '', '客户名称：', record.destination || '-', '', '', '', '生产厂家：', manufacturer, '', '', '']);
                 worksheet.mergeCells('A4:B4');
                 worksheet.mergeCells('E4:H4');
                 worksheet.mergeCells('J4:M4');
-                
+
                 // 收货人行（第5行）
                 worksheet.addRow(['收货人：', consignee, '', '收货地址：', consigneeAddress, '', '', '', '收货联系电话：', consigneePhone, '', '', '']);
                 worksheet.mergeCells('A5:B5');
                 worksheet.mergeCells('E5:H5');
                 worksheet.mergeCells('J5:M5');
-                
+
                 // 空行（第6行）
                 worksheet.addRow([]);
-                
+
                 // 表头行（第7行）
                 const headerRow = worksheet.addRow(['序号', '产品编码', '品名', '产品规格', '单位', '数量', '单价', '金额/元', '产品批号', '生产日期', '有效期', '零售价', '备注']);
                 headerRow.eachCell((cell) => {
@@ -592,12 +689,12 @@ async function exportOutOrder(recordId) {
                         right: { style: 'thin', color: { argb: 'FF000000' } }
                     };
                 });
-                
+
                 // 数据行（第8行）
                 const dataRow = worksheet.addRow([
-                    1, productCode, record.product_name, spec, unit, record.quantity, 
-                    formatMoney(record.unit_price), formatMoney(record.total_amount), 
-                    record.batch_number || '-', formattedProductionDate, formattedExpirationDate, 
+                    1, productCode, record.product_name, spec, unit, record.quantity,
+                    formatMoney(record.unit_price), formatMoney(record.total_amount),
+                    record.batch_number || '-', formattedProductionDate, formattedExpirationDate,
                     formattedRetailPrice, record.remark || '-'
                 ]);
                 dataRow.eachCell((cell) => {
@@ -610,10 +707,10 @@ async function exportOutOrder(recordId) {
                         right: { style: 'thin', color: { argb: 'FF000000' } }
                     };
                 });
-                
+
                 // 空行（第9行）
                 worksheet.addRow([]);
-                
+
                 // 合计行（第10行）
                 const totalRow1 = worksheet.addRow(['合计金额人民币（小写）：', '', '', '', '', '', '', '', formatMoney(record.total_amount), '', '', '共 1 件', '']);
                 worksheet.mergeCells('A10:H10');
@@ -621,42 +718,42 @@ async function exportOutOrder(recordId) {
                 totalRow1.getCell('A').font = { name: '宋体', size: 11, bold: true };
                 totalRow1.getCell('I').font = { name: '宋体', size: 11, bold: true };
                 totalRow1.getCell('I').alignment = { horizontal: 'center' };
-                
+
                 // 大写金额行（第11行）
                 const totalRow2 = worksheet.addRow(['合计金额人民币（大写）：', '', '', '', '', '', '', '', numToChinese(parseFloat(record.total_amount)), '', '', '', '']);
                 worksheet.mergeCells('A11:H11');
                 worksheet.mergeCells('I11:M11');
                 totalRow2.getCell('A').font = { name: '宋体', size: 11, bold: true };
                 totalRow2.getCell('I').font = { name: '宋体', size: 11, bold: true };
-                
+
                 // 空行（第12行）
                 worksheet.addRow([]);
-                
+
                 // 制单人信息行（第13行）
                 worksheet.addRow(['制单人：', '-', '', '审核人：', '-', '', '销售负责人：', '-', '', '客户收货人：', '-', '', '']);
                 worksheet.mergeCells('A13:B13');
                 worksheet.mergeCells('D13:E13');
                 worksheet.mergeCells('G13:H13');
                 worksheet.mergeCells('J13:K13');
-                
+
                 // 空行（第14行）
                 worksheet.addRow([]);
-                
+
                 // 备注行（第15行）
                 const noteRow = worksheet.addRow(['（一式四联：白色存根联 黄色回单联 红色客户联为财务对账联）', '', '', '', '', '', '', '', '', '', '', '', '']);
                 worksheet.mergeCells('A15:M15');
                 noteRow.getCell('A').alignment = { horizontal: 'left' };
-                
+
                 // 注意事项行（第16行）
                 const tipRow = worksheet.addRow(['注意事项：客户签收表示购销双方权利义务已确认，货品如有差错，请三天内来电说明（与销售负责人联系），每次发货同行的厂检请保存好', '', '', '', '', '', '', '', '', '', '', '', '']);
                 worksheet.mergeCells('A16:M16');
                 tipRow.getCell('A').alignment = { horizontal: 'left', wrapText: true };
                 worksheet.getRow(16).height = 30;
-                
+
                 // 设置行高
                 worksheet.getRow(1).height = 35;
                 worksheet.getRow(7).height = 25;
-                
+
                 // 导出Excel文件
                 const buffer = await workbook.xlsx.writeBuffer();
                 const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -670,33 +767,33 @@ async function exportOutOrder(recordId) {
             } else {
                 // 如果ExcelJS不可用，使用CSV导出作为备用
                 console.warn('ExcelJS不可用，使用CSV导出');
-                
+
                 // 创建CSV下载链接
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement('a');
                 link.setAttribute('href', encodedUri);
                 link.setAttribute('download', `出库单_${orderNumber}.csv`);
                 document.body.appendChild(link);
-                
+
                 // 触发下载
                 link.click();
                 document.body.removeChild(link);
             }
         } catch (error) {
             console.error('Excel导出失败，使用CSV导出:', error);
-            
+
             // 失败时使用CSV导出
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement('a');
             link.setAttribute('href', encodedUri);
             link.setAttribute('download', `出库单_${orderNumber}.csv`);
             document.body.appendChild(link);
-            
+
             // 触发下载
             link.click();
             document.body.removeChild(link);
         }
-        
+
     } catch (error) {
         console.error('导出出库单失败:', error);
         alert('导出出库单失败: ' + error.message);
@@ -716,7 +813,7 @@ async function batchViewOutOrder() {
         alert('请先选择至少一条出库记录');
         return;
     }
-    
+
     try {
         // 获取所有选中记录的详细信息
         const records = [];
@@ -728,14 +825,14 @@ async function batchViewOutOrder() {
             const record = await response.json();
             records.push(record);
         }
-        
+
         // 生成出库单单号
         const firstRecord = records[0];
         const orderNumber = generateOrderNumber(firstRecord);
-        
+
         // 计算总金额
         const totalAmount = records.reduce((sum, record) => sum + parseFloat(record.total_amount || 0), 0);
-        
+
         // 生成出库单HTML
         let orderHtml = `
             <div class="container">
@@ -789,7 +886,7 @@ async function batchViewOutOrder() {
                             const productionDate = record.production_date !== undefined ? record.production_date : '-';
                             const expirationDate = record.expiration_date !== undefined ? record.expiration_date : '-';
                             const retailPrice = record.retail_price !== undefined ? '¥' + formatMoney(record.retail_price) : '-';
-                            
+
                             return `
                                 <tr>
                                     <td>${index + 1}</td>
@@ -834,7 +931,7 @@ async function batchViewOutOrder() {
                 </div>
             </div>
         `;
-        
+
         // 创建模态框
         const modal = document.createElement('div');
         modal.className = 'modal fade show';
@@ -846,59 +943,59 @@ async function batchViewOutOrder() {
         modal.style.width = '100%';
         modal.style.height = '100%';
         modal.style.zIndex = '1050';
-        
+
         // 创建模态框内容
         const modalDialog = document.createElement('div');
         modalDialog.className = 'modal-dialog modal-xl';
         modalDialog.style.margin = '1.75rem auto';
         modalDialog.style.maxWidth = '90%';
-        
+
         const modalContent = document.createElement('div');
         modalContent.className = 'modal-content';
-        
+
         const modalHeader = document.createElement('div');
         modalHeader.className = 'modal-header';
         modalHeader.innerHTML = `
             <h5 class="modal-title">批量出库单详情</h5>
             <button type="button" class="btn-close" aria-label="Close"></button>
         `;
-        
+
         const modalBody = document.createElement('div');
         modalBody.className = 'modal-body';
         modalBody.innerHTML = orderHtml;
-        
+
         const modalFooter = document.createElement('div');
         modalFooter.className = 'modal-footer';
         modalFooter.innerHTML = `
             <button type="button" class="btn btn-secondary">关闭</button>
             <button type="button" class="btn btn-success"><i class="bi bi-download me-1"></i>导出</button>
         `;
-        
+
         // 组装模态框
         modalContent.appendChild(modalHeader);
         modalContent.appendChild(modalBody);
         modalContent.appendChild(modalFooter);
         modalDialog.appendChild(modalContent);
         modal.appendChild(modalDialog);
-        
+
         document.body.appendChild(modal);
         document.body.style.overflow = 'hidden'; // 防止背景滚动
-        
+
         // 添加关闭事件
         modalHeader.querySelector('.btn-close').addEventListener('click', function() {
             modal.remove();
             document.body.style.overflow = '';
         });
-        
+
         modalFooter.querySelector('.btn-secondary').addEventListener('click', function() {
             modal.remove();
             document.body.style.overflow = '';
         });
-        
+
         modalFooter.querySelector('.btn-success').addEventListener('click', function() {
             batchExportOutOrder();
         });
-        
+
         // 点击模态框背景关闭
         modal.addEventListener('click', function(e) {
             if (e.target === modal) {
@@ -906,7 +1003,7 @@ async function batchViewOutOrder() {
                 document.body.style.overflow = '';
             }
         });
-        
+
     } catch (error) {
         console.error('批量查看出库单失败:', error);
         alert('批量查看出库单失败: ' + error.message);
@@ -920,7 +1017,7 @@ async function batchExportOutOrder() {
         alert('请先选择至少一条出库记录');
         return;
     }
-    
+
     // 显示导出模态框，收集收件信息
     const modal = document.createElement('div');
     modal.className = 'modal fade show';
@@ -959,7 +1056,7 @@ async function batchExportOutOrder() {
         </div>
     `;
     document.body.appendChild(modal);
-    
+
     // 添加关闭模态框的点击事件
     modal.addEventListener('click', function(e) {
         if (e.target === modal) {
@@ -975,19 +1072,19 @@ async function confirmBatchExport() {
         alert('请先选择至少一条出库记录');
         return;
     }
-    
+
     try {
         // 获取收件信息
-        const consignee = document.getElementById('batchConsignee').value || '-';
-        const consigneeAddress = document.getElementById('batchConsigneeAddress').value || '-';
-        const consigneePhone = document.getElementById('batchConsigneePhone').value || '-';
-        
+        const consignee = document.getElementById('batchConsignee')?.value || '-';
+        const consigneeAddress = document.getElementById('batchConsigneeAddress')?.value || '-';
+        const consigneePhone = document.getElementById('batchConsigneePhone')?.value || '-';
+
         // 关闭导出模态框
         const exportModals = document.querySelectorAll('.modal.show');
         exportModals.forEach(modal => {
             modal.remove();
         });
-        
+
         // 获取所有选中记录的详细信息
         const records = [];
         for (const id of selectedIds) {
@@ -998,24 +1095,24 @@ async function confirmBatchExport() {
             const record = await response.json();
             records.push(record);
         }
-        
+
         // 生成出库单单号
         const firstRecord = records[0];
         const orderNumber = generateOrderNumber(firstRecord);
-        
+
         // 计算总金额
         const totalAmount = records.reduce((sum, record) => sum + parseFloat(record.total_amount || 0), 0);
-        
+
         // 格式化日期
         function formatDate(dateStr) {
             if (!dateStr || dateStr === '-') return '-';
             const date = new Date(dateStr);
             return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
         }
-        
+
         // 生成CSV内容
         let csvContent = `data:text/csv;charset=utf-8,\uFEFF,,${getCompanyName()}销售出库单,,,,,,\n\n,,,,单号：${orderNumber},转入单号：,,\n开单日期：,${firstRecord.display_date ? formatDate(firstRecord.display_date) : '-'},客户名称：,${firstRecord.destination || '-'},生产厂家：,-,,\n收货人：,${consignee},收货地址：,${consigneeAddress},收货联系电话：,${consigneePhone},,,\n\n序号,产品编码,品牌,品名,产品规格,单位,数量,单价,金额/元,产品批号,生产日期,有效期,零售价,备注\n`;
-        
+
         records.forEach((record, index) => {
             const productCode = record.product_code || '-';
             const spec = record.spec || '-';
@@ -1023,19 +1120,19 @@ async function confirmBatchExport() {
             const productionDate = record.production_date ? formatDate(record.production_date) : '-';
             const expirationDate = record.expiration_date ? formatDate(record.expiration_date) : '-';
             const retailPrice = record.retail_price ? formatMoney(record.retail_price) : '-';
-            
+
             csvContent += `${index + 1},${productCode},,${record.product_name},${spec},${unit},${record.quantity},${formatMoney(record.unit_price)},${formatMoney(record.total_amount)},${record.batch_number || '-'},${productionDate},${expirationDate},${retailPrice},${record.remark || '-'}\n`;
         });
-        
+
         csvContent += `\n合计金额人民币（小写）：,,,,,,,,${totalAmount.toFixed(2)},共 ${records.length} 件,,\n合计金额人民币（大写）：,,,,,,,,${numToChinese(totalAmount)},,,\n\n制单人：,,审核人：,,销售负责人：,,客户收货人：,,\n\n（一式四联：白色存根联 黄色回单联 红色客户联为财务对账联）,,,,,,\n注意事项：客户签收表示购销双方权利义务已确认，货品如有差错，请三天内来电说明（与销售负责人联系），每次发货同行的厂检请保存好,,,,,,`;
-        
+
         try {
             // 使用ExcelJS导出
             if (typeof ExcelJS !== 'undefined') {
                 // 创建工作簿
                 const workbook = new ExcelJS.Workbook();
                 const worksheet = workbook.addWorksheet('销售出库单');
-                
+
                 // 设置列宽
                 worksheet.columns = [
                     { width: 8 },   // A: 序号
@@ -1052,7 +1149,7 @@ async function confirmBatchExport() {
                     { width: 10 },  // L: 零售价
                     { width: 16 }   // M: 备注
                 ];
-                
+
                 // 添加标题行（第1行）
                 const titleRow = worksheet.addRow([`${getCompanyName()}销售出库单`]);
                 worksheet.mergeCells('A1:M1');
@@ -1061,30 +1158,30 @@ async function confirmBatchExport() {
                 titleCell.alignment = { horizontal: 'center', vertical: 'center' };
                 titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
                 worksheet.getRow(1).height = 35;
-                
+
                 // 空行（第2行）
                 worksheet.addRow([]);
-                
+
                 // 单号行（第3行）
                 worksheet.addRow([`单号：${orderNumber}`, '', '', '', '', '', '', '', '', '', '', '转入单号：', '']);
                 worksheet.mergeCells('A3:D3');
                 worksheet.mergeCells('L3:M3');
-                
+
                 // 开单日期行（第4行）
                 worksheet.addRow(['开单日期：', firstRecord.display_date ? formatDate(firstRecord.display_date) : '-', '', '客户名称：', firstRecord.destination || '-', '', '', '', '生产厂家：', '-', '', '', '']);
                 worksheet.mergeCells('A4:B4');
                 worksheet.mergeCells('E4:H4');
                 worksheet.mergeCells('J4:M4');
-                
+
                 // 收货人行（第5行）
                 worksheet.addRow(['收货人：', consignee, '', '收货地址：', consigneeAddress, '', '', '', '收货联系电话：', consigneePhone, '', '', '']);
                 worksheet.mergeCells('A5:B5');
                 worksheet.mergeCells('E5:H5');
                 worksheet.mergeCells('J5:M5');
-                
+
                 // 空行（第6行）
                 worksheet.addRow([]);
-                
+
                 // 表头行（第7行）
                 const headerRow = worksheet.addRow(['序号', '产品编码', '品名', '产品规格', '单位', '数量', '单价', '金额/元', '产品批号', '生产日期', '有效期', '零售价', '备注']);
                 headerRow.eachCell((cell) => {
@@ -1098,8 +1195,8 @@ async function confirmBatchExport() {
                         right: { style: 'thin', color: { argb: 'FF000000' } }
                     };
                 });
-                
-                // 数据行（从第8行开始）
+
+                // 数据行
                 records.forEach((record, index) => {
                     const productCode = record.product_code || '-';
                     const spec = record.spec || '-';
@@ -1107,21 +1204,12 @@ async function confirmBatchExport() {
                     const productionDate = record.production_date ? formatDate(record.production_date) : '-';
                     const expirationDate = record.expiration_date ? formatDate(record.expiration_date) : '-';
                     const retailPrice = record.retail_price ? formatMoney(record.retail_price) : '-';
-                    
+
                     const dataRow = worksheet.addRow([
-                        index + 1,
-                        productCode,
-                        record.product_name,
-                        spec,
-                        unit,
-                        record.quantity,
-                        formatMoney(record.unit_price),
-                        formatMoney(record.total_amount),
-                        record.batch_number || '-',
-                        productionDate,
-                        expirationDate,
-                        retailPrice,
-                        record.remark || '-'
+                        index + 1, productCode, record.product_name, spec, unit, record.quantity,
+                        formatMoney(record.unit_price), formatMoney(record.total_amount),
+                        record.batch_number || '-', productionDate, expirationDate,
+                        retailPrice, record.remark || '-'
                     ]);
                     dataRow.eachCell((cell) => {
                         cell.font = { name: '宋体', size: 10 };
@@ -1134,306 +1222,70 @@ async function confirmBatchExport() {
                         };
                     });
                 });
-                
+
                 // 空行
                 worksheet.addRow([]);
-                
+
                 // 合计行
-                const dataEndRow = 7 + records.length;
-                const totalRow1 = worksheet.addRow(['合计金额人民币（小写）：', '', '', '', '', '', '', '', totalAmount.toFixed(2), '', '', `共 ${records.length} 件`, '']);
-                worksheet.mergeCells(`A${dataEndRow + 1}:H${dataEndRow + 1}`);
-                worksheet.mergeCells(`J${dataEndRow + 1}:K${dataEndRow + 1}`);
-                totalRow1.getCell('A').font = { name: '宋体', size: 11, bold: true };
-                totalRow1.getCell('I').font = { name: '宋体', size: 11, bold: true };
-                totalRow1.getCell('I').alignment = { horizontal: 'center' };
-                
+                const totalRow1 = worksheet.addRow(['合计金额人民币（小写）：', '', '', '', '', '', '', '', formatMoney(totalAmount), '', '', `共 ${records.length} 件`, '']);
+                worksheet.mergeCells(`A${8 + records.length + 1}:H${8 + records.length + 1}`);
+                worksheet.mergeCells(`J${8 + records.length + 1}:K${8 + records.length + 1}`);
+
                 // 大写金额行
                 const totalRow2 = worksheet.addRow(['合计金额人民币（大写）：', '', '', '', '', '', '', '', numToChinese(totalAmount), '', '', '', '']);
-                worksheet.mergeCells(`A${dataEndRow + 2}:H${dataEndRow + 2}`);
-                worksheet.mergeCells(`I${dataEndRow + 2}:M${dataEndRow + 2}`);
-                totalRow2.getCell('A').font = { name: '宋体', size: 11, bold: true };
-                totalRow2.getCell('I').font = { name: '宋体', size: 11, bold: true };
-                
+                worksheet.mergeCells(`A${8 + records.length + 2}:H${8 + records.length + 2}`);
+                worksheet.mergeCells(`I${8 + records.length + 2}:M${8 + records.length + 2}`);
+
                 // 空行
                 worksheet.addRow([]);
-                
-                // 制单人信息行
-                const signRow = worksheet.addRow(['制单人：', '-', '', '审核人：', '-', '', '销售负责人：', '-', '', '客户收货人：', '-', '', '']);
-                worksheet.mergeCells(`A${dataEndRow + 4}:B${dataEndRow + 4}`);
-                worksheet.mergeCells(`D${dataEndRow + 4}:E${dataEndRow + 4}`);
-                worksheet.mergeCells(`G${dataEndRow + 4}:H${dataEndRow + 4}`);
-                worksheet.mergeCells(`J${dataEndRow + 4}:K${dataEndRow + 4}`);
-                
+                worksheet.addRow([]);
+
+                // 签名行
+                worksheet.addRow(['制单人：', '', '', '', '审核人：', '', '', '', '销售负责人：', '', '', '', '客户收货人：']);
+
                 // 空行
                 worksheet.addRow([]);
-                
-                // 备注行
-                const noteRow = worksheet.addRow(['（一式四联：白色存根联 黄色回单联 红色客户联为财务对账联）', '', '', '', '', '', '', '', '', '', '', '', '']);
-                worksheet.mergeCells(`A${dataEndRow + 6}:M${dataEndRow + 6}`);
-                noteRow.getCell('A').alignment = { horizontal: 'left' };
-                
-                // 注意事项行
-                const tipRow = worksheet.addRow(['注意事项：客户签收表示购销双方权利义务已确认，货品如有差错，请三天内来电说明（与销售负责人联系），每次发货同行的厂检请保存好', '', '', '', '', '', '', '', '', '', '', '', '']);
-                worksheet.mergeCells(`A${dataEndRow + 7}:M${dataEndRow + 7}`);
-                tipRow.getCell('A').alignment = { horizontal: 'left', wrapText: true };
-                worksheet.getRow(dataEndRow + 7).height = 30;
-                
-                // 设置行高
-                worksheet.getRow(1).height = 35;
-                worksheet.getRow(7).height = 25;
-                
+
+                // 一式四联
+                worksheet.addRow(['（一式四联：白色存根联 黄色回单联 红色客户联为财务对账联）']);
+
+                // 注意事项
+                worksheet.addRow(['注意事项：客户签收表示购销双方权利义务已确认，货品如有差错，请三天内来电说明（与销售负责人联系），每次发货同行的厂检请保存好']);
+
                 // 导出Excel文件
                 const buffer = await workbook.xlsx.writeBuffer();
                 const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = `销售出库单_${orderNumber}.xlsx`;
+                link.download = `批量销售出库单_${orderNumber}.xlsx`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(link.href);
             } else {
-                // 如果Excel导出API不可用，使用CSV导出作为备用
-                console.warn('Excel导出API不可用，使用CSV导出');
-                
-                // 生成CSV内容
-                let csvContent = `data:text/csv;charset=utf-8,﻿,,${getCompanyName()}销售出库单,,,,,,
-
-,,,,单号：${orderNumber},转入单号：,,
-开单日期：,${firstRecord.display_date || '-'},客户名称：,${firstRecord.destination || '-'},生产厂家：,-,,,
-收货人：,${consignee},收货地址：,${consigneeAddress},收货联系电话：,${consigneePhone},,,
-
-序号,产品编码,品牌,品名,产品规格,单位,数量,单价,金额/元,产品批号,生产日期,有效期,零售价,备注
-`;
-                
-                // 添加数据行
-                records.forEach((record, index) => {
-                    const productCode = record.product_code || '-';
-                    const spec = record.spec || '-';
-                    const unit = record.unit || '-';
-                    const productionDate = record.production_date ? formatDate(record.production_date) : '-';
-                    const expirationDate = record.expiration_date ? formatDate(record.expiration_date) : '-';
-                    const retailPrice = record.retail_price ? formatMoney(record.retail_price) : '-';
-                    
-                    csvContent += `${index + 1},${productCode},,${record.product_name},${spec},${unit},${record.quantity},${formatMoney(record.unit_price)},${formatMoney(record.total_amount)},${record.batch_number || '-'},${productionDate},${expirationDate},${retailPrice},${record.remark || '-'}\n`;
-                });
-                
-                // 添加合计行
-                csvContent += `\n合计金额人民币（小写）：,,,,,,,,${totalAmount.toFixed(2)},共 ${records.length} 件,,\n合计金额人民币（大写）：,,,,,,,,${numToChinese(totalAmount)},,,\n\n制单人：,,审核人：,,销售负责人：,,客户收货人：,,\n\n（一式四联：白色存根联 黄色回单联 红色客户联为财务对账联）,,,,,,\n注意事项：客户签收表示购销双方权利义务已确认，货品如有差错，请三天内来电说明（与销售负责人联系），每次发货同行的厂检请保存好,,,,,,`;
-                
-                // 创建CSV下载链接
+                // CSV导出
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement('a');
                 link.setAttribute('href', encodedUri);
-                link.setAttribute('download', `出库单_${orderNumber}.csv`);
+                link.setAttribute('download', `批量出库单_${orderNumber}.csv`);
                 document.body.appendChild(link);
-                
-                // 触发下载
                 link.click();
                 document.body.removeChild(link);
             }
         } catch (error) {
-            console.error('Excel导出失败，使用CSV导出:', error);
-            
-            // 生成CSV内容
-            let csvContent = `data:text/csv;charset=utf-8,﻿,,${getCompanyName()}销售出库单,,,,,,
-
-,,,,单号：${orderNumber},转入单号：,,
-开单日期：,${firstRecord.display_date || '-'},客户名称：,${firstRecord.destination || '-'},生产厂家：,-,,,
-收货人：,${consignee},收货地址：,${consigneeAddress},收货联系电话：,${consigneePhone},,,
-
-序号,产品编码,品牌,品名,产品规格,单位,数量,单价,金额/元,产品批号,生产日期,有效期,零售价,备注
-`;
-            
-            // 添加数据行
-            records.forEach((record, index) => {
-                const productCode = record.product_code || '-';
-                const spec = record.spec || '-';
-                const unit = record.unit || '-';
-                const productionDate = record.production_date ? formatDate(record.production_date) : '-';
-                const expirationDate = record.expiration_date ? formatDate(record.expiration_date) : '-';
-                const retailPrice = record.retail_price ? formatMoney(record.retail_price) : '-';
-                
-                csvContent += `${index + 1},${productCode},,${record.product_name},${spec},${unit},${record.quantity},${formatMoney(record.unit_price)},${formatMoney(record.total_amount)},${record.batch_number || '-'},${productionDate},${expirationDate},${retailPrice},${record.remark || '-'}\n`;
-            });
-            
-            // 添加合计行
-            csvContent += `\n合计金额人民币（小写）：,,,,,,,,${totalAmount.toFixed(2)},共 ${records.length} 件,,\n合计金额人民币（大写）：,,,,,,,,${numToChinese(totalAmount)},,,\n\n制单人：,,审核人：,,销售负责人：,,客户收货人：,,\n\n（一式四联：白色存根联 黄色回单联 红色客户联为财务对账联）,,,,,,\n注意事项：客户签收表示购销双方权利义务已确认，货品如有差错，请三天内来电说明（与销售负责人联系），每次发货同行的厂检请保存好,,,,,,`;
-            
-            // 失败时使用CSV导出
+            console.error('导出失败:', error);
+            // CSV导出
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement('a');
             link.setAttribute('href', encodedUri);
-            link.setAttribute('download', `出库单_${orderNumber}.csv`);
+            link.setAttribute('download', `批量出库单_${orderNumber}.csv`);
             document.body.appendChild(link);
-            
-            // 触发下载
             link.click();
             document.body.removeChild(link);
         }
-        
+
     } catch (error) {
         console.error('批量导出出库单失败:', error);
         alert('批量导出出库单失败: ' + error.message);
     }
 }
-
-// 页面加载完成后初始化
-// 撤销出库记录
-async function cancelOutRecord(id) {
-    if (!confirm('确定要撤销这条出库记录吗？此操作将恢复库存，请谨慎操作！')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/out-records/${id}/cancel`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP错误: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('撤销出库成功！');
-            // 重新加载出库记录
-            await loadOutRecords();
-        } else {
-            alert('撤销出库失败: ' + data.message);
-        }
-    } catch (error) {
-        console.error('撤销出库失败:', error);
-        alert('撤销出库失败，请稍后重试');
-    }
-}
-
-// 修改出库记录
-async function editOutRecord(id) {
-    try {
-        const response = await fetch(`/api/out-records`);
-        if (!response.ok) {
-            throw new Error('获取出库记录失败');
-        }
-        
-        const outRecords = await response.json();
-        const record = outRecords.find(r => r.id === id);
-        
-        if (!record) {
-            alert('找不到该出库记录');
-            return;
-        }
-        
-        // 填充表单数据
-        document.getElementById('edit_out_record_id').value = record.id;
-        document.getElementById('edit_out_product_name').value = record.product_name;
-        document.getElementById('edit_out_batch_number').value = record.batch_number || '';
-        document.getElementById('edit_out_quantity').value = record.quantity;
-        document.getElementById('edit_out_unit_price').value = record.unit_price;
-        document.getElementById('edit_out_total_amount').value = record.total_amount;
-        document.getElementById('edit_out_destination').value = record.destination || '';
-        document.getElementById('edit_out_recorded_date').value = record.display_date || '';
-        document.getElementById('edit_out_remark').value = record.remark || '';
-        
-        // 加载出库方式
-        await loadEditOutStockMethods(record.stock_method_name);
-        
-        // 显示模态框
-        const modal = new bootstrap.Modal(document.getElementById('editOutRecordModal'));
-        modal.show();
-        
-    } catch (error) {
-        console.error('加载出库记录失败:', error);
-        alert('加载出库记录失败，请稍后重试');
-    }
-}
-
-// 加载修改模态框中的出库方式
-async function loadEditOutStockMethods(selectedMethod) {
-    try {
-        const response = await fetch('/api/stock-methods?type=out');
-        if (!response.ok) {
-            throw new Error(`HTTP错误: ${response.status}`);
-        }
-        const methods = await response.json();
-        const select = document.getElementById('edit_out_stock_method_name');
-        select.innerHTML = '<option value="">请选择出库方式</option>';
-        methods.forEach(method => {
-            const option = document.createElement('option');
-            option.value = method;
-            option.textContent = method;
-            if (method === selectedMethod) {
-                option.selected = true;
-            }
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('加载出库方式失败:', error);
-    }
-}
-
-// 计算修改模态框中的总金额
-function calculateEditOutTotal() {
-    const quantity = parseFloat(document.getElementById('edit_out_quantity').value) || 0;
-    const unitPrice = parseFloat(document.getElementById('edit_out_unit_price').value) || 0;
-    const totalAmount = quantity * unitPrice;
-    document.getElementById('edit_out_total_amount').value = totalAmount.toFixed(2);
-}
-
-// 保存修改
-async function saveEditOutRecord() {
-    const id = document.getElementById('edit_out_record_id').value;
-    const updateData = {
-        stock_method_name: document.getElementById('edit_out_stock_method_name').value,
-        quantity: parseInt(document.getElementById('edit_out_quantity').value),
-        unit_price: parseFloat(document.getElementById('edit_out_unit_price').value),
-        total_amount: parseFloat(document.getElementById('edit_out_total_amount').value),
-        destination: document.getElementById('edit_out_destination').value,
-        recorded_date: document.getElementById('edit_out_recorded_date').value,
-        remark: document.getElementById('edit_out_remark').value
-    };
-    
-    try {
-        const response = await fetch(`/api/out-records/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updateData)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP错误: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('修改出库成功！');
-            // 关闭模态框
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editOutRecordModal'));
-            modal.hide();
-            // 重新加载出库记录
-            await loadOutRecords();
-        } else {
-            alert('修改出库失败: ' + data.message);
-        }
-    } catch (error) {
-        console.error('修改出库失败:', error);
-        alert('修改出库失败，请稍后重试');
-    }
-}
-
-// 页面加载完成后初始化
-window.addEventListener('DOMContentLoaded', function() {
-    initOutRecordsPage();
-    
-    // 添加修改模态框的事件监听
-    document.getElementById('edit_out_quantity').addEventListener('input', calculateEditOutTotal);
-    document.getElementById('edit_out_unit_price').addEventListener('input', calculateEditOutTotal);
-    document.getElementById('saveEditOutBtn').addEventListener('click', saveEditOutRecord);
-});

@@ -4,270 +4,114 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>库存查询 - 仓库管理系统</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" rel="stylesheet">
-    <!-- 公共样式 -->
     <link href="css/common.css" rel="stylesheet">
-    <!-- Modern 现代化样式 -->
     <link href="css/modern.css" rel="stylesheet">
 </head>
-
 <body>
-    <!-- 导航栏 -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="index.html">
-                <i class="bi bi-warehouse me-2"></i>仓库管理系统
-            </a>
-
+            <a class="navbar-brand fw-bold" href="index.html"><i class="bi bi-warehouse me-2"></i>仓库管理系统</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.html">
-                            <i class="bi bi-house-door me-1"></i>首页
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="products.html">
-                            <i class="bi bi-plus-circle me-1"></i>添加商品
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="product_list.html">
-                            <i class="bi bi-list-check me-1"></i>商品列表
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="in.html">
-                            <i class="bi bi-arrow-down-circle me-1"></i>入库管理
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="in_records.html">
-                            <i class="bi bi-box-arrow-down me-1"></i>入库记录
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="out.html">
-                            <i class="bi bi-arrow-up-circle me-1"></i>出库管理
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="out_records.html">
-                            <i class="bi bi-box-arrow-up me-1"></i>出库记录
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="stock.html">
-                            <i class="bi bi-clipboard-data me-1"></i>库存查看
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="query.html">
-                            <i class="bi bi-search me-1"></i>库存查询
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="settings.html">
-                            <i class="bi bi-gear me-1"></i>系统设置
-                        </a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-house-door me-1"></i>首页</a></li>
+                    <li class="nav-item"><a class="nav-link" href="product_list.html"><i class="bi bi-box-seam me-1"></i>商品管理</a></li>
+                    <li class="nav-item"><a class="nav-link" href="in.html"><i class="bi bi-arrow-down-circle me-1"></i>入库</a></li>
+                    <li class="nav-item"><a class="nav-link" href="out.html"><i class="bi bi-arrow-up-circle me-1"></i>出库</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="stock.html"><i class="bi bi-clipboard-data me-1"></i>库存</a></li>
+                    <li class="nav-item"><a class="nav-link" href="suppliers.html"><i class="bi bi-truck me-1"></i>供应商</a></li>
+                    <li class="nav-item"><a class="nav-link" href="dashboard.html"><i class="bi bi-bar-chart me-1"></i>看板</a></li>
+                    <li class="nav-item"><a class="nav-link" href="batch.html"><i class="bi bi-list-columns me-1"></i>批量</a></li>
+                    <li class="nav-item"><a class="nav-link" href="stocktaking.html"><i class="bi bi-clipboard-check me-1"></i>盘点</a></li>
+                    <li class="nav-item"><a class="nav-link" href="settings.html"><i class="bi bi-gear me-1"></i>设置</a></li>
                 </ul>
-
                 <div class="d-flex align-items-center text-white">
                     <span id="currentUser" class="me-3"></span>
-                    <button class="btn btn-outline-light btn-sm" onclick="logout()">
-                        <i class="bi bi-box-arrow-right me-1"></i>退出登录
-                    </button>
+                    <button class="btn btn-outline-light btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right me-1"></i>退出</button>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- 主内容区 -->
+
     <div class="container-fluid main-content">
         <div class="page-header">
             <h2 class="mb-1"><i class="bi bi-search me-2"></i>库存查询</h2>
-            <p class="mb-0">查询商品库存详情，包括入库出库记录和月度统计</p>
+            <p class="mb-0">按条件查询库存信息</p>
         </div>
-
-        <!-- 查询条件卡片 -->
-        <div class="card query-card">
-            <div class="card-header d-flex align-items-center">
-                <i class="bi bi-filter me-2"></i>查询条件
-            </div>
+        <div class="card mb-4">
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <label for="productId" class="form-label">选择商品</label>
-                        <select class="form-select" id="productId">
-                            <option value="">请选择商品（可选）</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="queryMonth" class="form-label">查询月份</label>
-                        <input type="month" class="form-control" id="queryMonth">
-                    </div>
-                    <div class="col-md-2 align-self-end">
-                        <button class="btn btn-primary w-100" onclick="queryStock()">
-                            <i class="bi bi-search me-2"></i>查询
-                        </button>
-                    </div>
+                    <div class="col-md-3"><label class="form-label">商品名称</label><input type="text" class="form-control" id="queryName" placeholder="模糊搜索"></div>
+                    <div class="col-md-2"><label class="form-label">库存状态</label><select class="form-select" id="queryStatus"><option value="">全部</option><option value="normal">正常</option><option value="warning">预警</option><option value="danger">危险</option><option value="out_of_stock">缺货</option></select></div>
+                    <div class="col-md-2"><label class="form-label">最低库存</label><input type="number" class="form-control" id="queryMinStock" min="0"></div>
+                    <div class="col-md-2"><label class="form-label">最高库存</label><input type="number" class="form-control" id="queryMaxStock" min="0"></div>
+                    <div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary" onclick="queryStock()"><i class="bi bi-search me-1"></i>查询</button> <button class="btn btn-outline-secondary ms-2" onclick="resetQuery()">重置</button></div>
                 </div>
             </div>
         </div>
-
-        <!-- 查询结果 -->
-        <div id="queryResult" style="display: none;">
-            <!-- 商品基本信息卡片 -->
-            <div class="card info-card mt-3">
-                <div class="card-header d-flex align-items-center">
-                    <i class="bi bi-info-circle me-2"></i>商品信息
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle"><thead><tr><th>商品名称</th><th>规格</th><th>单位</th><th>当前库存</th><th>预警线</th><th>状态</th></tr></thead><tbody id="queryResult"></tbody></table>
                 </div>
-                <div class="card-body">
-                    <div class="row" id="productInfo">
-                        <!-- 动态加载 -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- 按月统计卡片 -->
-            <div class="card mt-3">
-                <div class="card-header d-flex align-items-center">
-                    <i class="bi bi-calendar-check me-2"></i>按月统计
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead>
-                                <tr>
-                                    <th>月份</th>
-                                    <th>入库数量</th>
-                                    <th>出库数量</th>
-                                    <th>净变化</th>
-                                </tr>
-                            </thead>
-                            <tbody id="monthlyStatsTable">
-                                <!-- 动态加载 -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 批次库存卡片 -->
-            <div class="card mt-3">
-                <div class="card-header d-flex align-items-center">
-                    <i class="bi bi-clipboard-data me-2"></i>批次库存
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead>
-                                <tr>
-                                    <th>产品批号</th>
-                                    <th>生产日期</th>
-                                    <th>有效期</th>
-                                    <th>剩余库存</th>
-                                    <th>单位</th>
-                                </tr>
-                            </thead>
-                            <tbody id="batchStockTable">
-                                <!-- 动态加载 -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 入库明细卡片 -->
-            <div class="card mt-3">
-                <div class="card-header d-flex align-items-center">
-                    <i class="bi bi-arrow-down-circle me-2"></i>入库明细
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead>
-                                <tr>
-                                    <th>入库日期</th>
-                                    <th>入库方式</th>
-                                    <th>产品批号</th>
-                                    <th>生产日期</th>
-                                    <th>有效期</th>
-                                    <th>数量</th>
-                                    <th>单价</th>
-                                    <th>总金额</th>
-                                    <th>供应商名称</th>
-                                    <th>备注</th>
-                                </tr>
-                            </thead>
-                            <tbody id="inDetailsTable">
-                                <!-- 动态加载 -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 出库明细卡片 -->
-            <div class="card mt-3">
-                <div class="card-header d-flex align-items-center">
-                    <i class="bi bi-arrow-up-circle me-2"></i>出库明细
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead>
-                                <tr>
-                                    <th>出库日期</th>
-                                    <th>出库方式</th>
-                                    <th>产品批号</th>
-                                    <th>生产日期</th>
-                                    <th>有效期</th>
-                                    <th>数量</th>
-                                    <th>单价</th>
-                                    <th>总金额</th>
-                                    <th>客户名称</th>
-                                    <th>备注</th>
-                                </tr>
-                            </thead>
-                            <tbody id="outDetailsTable">
-                                <!-- 动态加载 -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <div id="emptyState" class="text-center text-muted py-4"><p>请输入查询条件</p></div>
             </div>
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer>
-        <div class="container">
-            &copy; 2026 仓库管理系统 | <a href="https://beian.miit.gov.cn/" target="_blank"
-                class="text-decoration-none text-reset">鄂ICP备2025167566号</a>
-        </div>
-    </footer>
+    <footer><div class="container">&copy; 2026 仓库管理系统 | <a href="https://beian.miit.gov.cn/" target="_blank" class="text-decoration-none text-reset">鄂ICP备2025167566号</a></div></footer>
 
-    <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="js/config.js"></script>
-    <script src="js/query.js"></script>
+
+    <script>
+        var allStock = [];
+        async function queryStock() {
+            try {
+                var resp = await fetch('/api/stock?pageSize=500');
+                var data = await resp.json();
+                allStock = data.data || data;
+                var name = (document.getElementById('queryName').value || '').toLowerCase();
+                var status = document.getElementById('queryStatus').value;
+                var min = parseInt(document.getElementById('queryMinStock').value) || 0;
+                var max = parseInt(document.getElementById('queryMaxStock').value) || Infinity;
+                var filtered = allStock.filter(function(s) {
+                    if (name && !(s.name || s.product_name || '').toLowerCase().includes(name)) return false;
+                    if (status && (s.stock_status || s.batch_status) !== status) return false;
+                    if (s.current_stock < min) return false;
+                    if (s.current_stock > max) return false;
+                    return true;
+                });
+                renderQuery(filtered);
+            } catch(e) { console.error(e); }
+        }
+        function renderQuery(items) {
+            var tbody = document.getElementById('queryResult');
+            var empty = document.getElementById('emptyState');
+            if (!items.length) { tbody.innerHTML = ''; empty.classList.remove('d-none'); empty.querySelector('p').textContent = '无匹配结果'; return; }
+            empty.classList.add('d-none');
+            var statusMap = { normal: ['bg-success','正常'], warning: ['bg-warning text-dark','预警'], danger: ['bg-danger','危险'], out_of_stock: ['bg-dark','缺货'] };
+            tbody.innerHTML = items.map(function(s) {
+                var st = statusMap[s.stock_status || s.batch_status] || ['bg-secondary', s.stock_status || s.batch_status];
+                return '<tr><td>' + (s.name||s.product_name||'') + '</td><td>' + (s.spec||s.product_spec||'-') + '</td><td>' + (s.unit||s.product_unit||'-') + '</td><td>' + (s.current_stock||0) + '</td><td>' + (s.warning_quantity||'-') + '</td><td><span class="badge ' + st[0] + '">' + st[1] + '</span></td></tr>';
+            }).join('');
+        }
+        function resetQuery() { document.getElementById('queryName').value = ''; document.getElementById('queryStatus').value = ''; document.getElementById('queryMinStock').value = ''; document.getElementById('queryMaxStock').value = ''; document.getElementById('queryResult').innerHTML = ''; document.getElementById('emptyState').classList.remove('d-none'); document.getElementById('emptyState').querySelector('p').textContent = '请输入查询条件'; }
+        async function checkLogin() { try { var r = await fetch('/api/auth/current-user'); var d = await r.json(); if (!d.loggedIn) { window.location.href = 'login.html'; return; } document.getElementById('currentUser').textContent = '欢迎, ' + d.username; } catch(e) { window.location.href = 'login.html'; } }
+        async function logout() { await fetch('/api/auth/logout', {method:'POST'}); window.location.href = 'login.html'; }
+        document.addEventListener('DOMContentLoaded', checkLogin);
+    </script>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const beianLink = document.querySelector('footer a[href*="beian.miit.gov.cn"]');
-            if (beianLink && config.beian) {
-                beianLink.textContent = config.beian;
-            }
+            var b = document.querySelector('footer a[href*="beian.miit.gov.cn"]');
+            if (b && config && config.beian) b.textContent = config.beian;
         });
     </script>
 </body>
-
 </html>

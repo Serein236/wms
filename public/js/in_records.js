@@ -5,6 +5,58 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+let allInRecordsData = [];
+
+function filterInRecords() {
+    const searchQuery = (document.getElementById('inSearchInput')?.value || '').trim().toLowerCase();
+    const monthFilter = document.getElementById('inMonthFilter')?.value || '';
+    let filtered = allInRecordsData;
+
+    if (searchQuery) {
+        filtered = filtered.filter(item =>
+            (item.product_name || '').toLowerCase().includes(searchQuery) ||
+            (item.source || '').toLowerCase().includes(searchQuery) ||
+            (item.batch_number || '').toLowerCase().includes(searchQuery)
+        );
+    }
+    if (monthFilter) {
+        filtered = filtered.filter(item => {
+            const d = item.display_date || item.recorded_date || '';
+            return d.startsWith(monthFilter);
+        });
+    }
+
+    const tbody = document.getElementById('inRecordsBody');
+    const emptyState = document.getElementById('emptyState');
+    if (!filtered.length) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('d-none');
+        return;
+    }
+    emptyState.classList.add('d-none');
+    tbody.innerHTML = filtered.map(record => `
+        <tr>
+            <td>${record.id}</td>
+            <td>${escapeHtml(record.product_name)}</td>
+            <td>${escapeHtml(record.stock_method_name) || '-'}</td>
+            <td>${escapeHtml(record.batch_number) || '-'}</td>
+            <td>${formatDate(record.production_date)}</td>
+            <td>${formatDate(record.expiration_date)}</td>
+            <td>${record.quantity}</td>
+            <td>¥${formatMoney(record.unit_price)}</td>
+            <td>¥${formatMoney(record.total_amount)}</td>
+            <td>${escapeHtml(record.source) || '-'}</td>
+            <td>${record.display_date || '-'}</td>
+            <td>${escapeHtml(record.remark) || '-'}</td>
+            <td>${formatDate(record.created_at)}</td>
+            <td>
+                <button class="btn btn-sm btn-warning btn-action" onclick="editInRecord(${record.id})"><i class="bi bi-pencil-square me-1"></i>修改</button>
+                <button class="btn btn-sm btn-danger btn-action" onclick="cancelInRecord(${record.id})"><i class="bi bi-x-circle me-1"></i>撤销</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
 function formatMoney(val) {
     if (val == null || val === '') return '0.00';
     const n = parseFloat(val);
@@ -22,43 +74,65 @@ function formatDate(timestamp) {
     return date.toISOString().split('T')[0];
 }
 
+// 分页状态
+let inRecordsPagination = PaginationHelper.getDefaultState();
+
 // 加载入库记录
-async function loadInRecords() {
+async function loadInRecords(page) {
     const loadingDiv = document.getElementById('loading');
     const errorDiv = document.getElementById('error');
     const emptyStateDiv = document.getElementById('emptyState');
     const recordsBody = document.getElementById('inRecordsBody');
     const recordCountDiv = document.getElementById('recordCount');
-    
+    const paginationDiv = document.getElementById('paginationControls');
+
+    if (page) inRecordsPagination.page = page;
+
     // 显示加载状态
     loadingDiv.classList.remove('d-none');
     errorDiv.classList.add('d-none');
     emptyStateDiv.classList.add('d-none');
-    
+
     try {
-        // 请求所有入库记录
-        const response = await fetch('/api/in-records');
+        // 请求入库记录（带分页参数）
+        const url = PaginationHelper.buildUrl('/api/in-records', {}, inRecordsPagination);
+        const response = await fetch(url);
         if (!response.ok) {
             throw new Error('加载入库记录失败');
         }
-        
-        const inRecords = await response.json();
-        
+
+        const result = await response.json();
+
         // 隐藏加载状态
         loadingDiv.classList.add('d-none');
-        
+
+        // Handle both paginated and non-paginated responses
+        let inRecords;
+        if (result.success && result.data) {
+            inRecords = result.data;
+            inRecordsPagination = { ...inRecordsPagination, ...result.pagination };
+        } else {
+            inRecords = result;
+        }
+        allInRecordsData = inRecords;
+
         // 显示记录数量
-        recordCountDiv.textContent = `共 ${inRecords.length} 条记录`;
-        
+        if (result.pagination) {
+            recordCountDiv.textContent = `共 ${result.pagination.total} 条记录，第 ${result.pagination.page}/${result.pagination.totalPages} 页`;
+        } else {
+            recordCountDiv.textContent = `共 ${inRecords.length} 条记录`;
+        }
+
         // 清空表格
         recordsBody.innerHTML = '';
-        
+
         if (inRecords.length === 0) {
             // 显示空状态
             emptyStateDiv.classList.remove('d-none');
+            if (paginationDiv) paginationDiv.innerHTML = '';
             return;
         }
-        
+
         // 渲染入库记录
         inRecords.forEach(record => {
             const row = document.createElement('tr');
@@ -87,7 +161,12 @@ async function loadInRecords() {
             `;
             recordsBody.appendChild(row);
         });
-        
+
+        // Render pagination controls
+        if (paginationDiv && result.pagination) {
+            paginationDiv.innerHTML = PaginationHelper.render(result.pagination, 'loadInRecords');
+        }
+
     } catch (error) {
         console.error('加载入库记录失败:', error);
         loadingDiv.classList.add('d-none');
@@ -100,7 +179,7 @@ async function loadInRecords() {
 async function initInRecordsPage() {
     // 初始化公共部分
     await recordsCommon.initPage();
-    
+
     // 加载入库记录
     await loadInRecords();
 }
@@ -108,7 +187,23 @@ async function initInRecordsPage() {
 // 页面加载完成后初始化
 window.addEventListener('DOMContentLoaded', function() {
     initInRecordsPage();
-    
+
+    // Search input event
+    const searchInput = document.getElementById('inSearchInput');
+    if (searchInput) {
+        let searchTimer;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => filterInRecords(), 300);
+        });
+    }
+
+    // Month filter event
+    const monthFilter = document.getElementById('inMonthFilter');
+    if (monthFilter) {
+        monthFilter.addEventListener('change', () => filterInRecords());
+    }
+
     // 添加修改模态框的事件监听
     document.getElementById('edit_quantity').addEventListener('input', calculateEditTotal);
     document.getElementById('edit_unit_price').addEventListener('input', calculateEditTotal);
@@ -120,7 +215,7 @@ async function cancelInRecord(id) {
     if (!confirm('确定要撤销这条入库记录吗？此操作将恢复库存，请谨慎操作！')) {
         return;
     }
-    
+
     try {
         const response = await fetch(`/api/in-records/${id}/cancel`, {
             method: 'DELETE',
@@ -134,7 +229,7 @@ async function cancelInRecord(id) {
         }
 
         const data = await response.json();
-        
+
         if (data.success) {
             alert('撤销入库成功！');
             // 重新加载入库记录
@@ -155,15 +250,15 @@ async function editInRecord(id) {
         if (!response.ok) {
             throw new Error('获取入库记录失败');
         }
-        
+
         const inRecords = await response.json();
         const record = inRecords.find(r => r.id === id);
-        
+
         if (!record) {
             alert('找不到该入库记录');
             return;
         }
-        
+
         // 填充表单数据
         document.getElementById('edit_record_id').value = record.id;
         document.getElementById('edit_product_name').value = record.product_name;
@@ -176,14 +271,14 @@ async function editInRecord(id) {
         document.getElementById('edit_source').value = record.source || '';
         document.getElementById('edit_recorded_date').value = record.display_date || '';
         document.getElementById('edit_remark').value = record.remark || '';
-        
+
         // 加载入库方式
         await loadEditStockMethods(record.stock_method_name);
-        
+
         // 显示模态框
         const modal = new bootstrap.Modal(document.getElementById('editInRecordModal'));
         modal.show();
-        
+
     } catch (error) {
         console.error('加载入库记录失败:', error);
         alert('加载入库记录失败，请稍后重试');
@@ -237,7 +332,7 @@ async function saveEditInRecord() {
         recorded_date: document.getElementById('edit_recorded_date').value,
         remark: document.getElementById('edit_remark').value
     };
-    
+
     try {
         const response = await fetch(`/api/in-records/${id}`, {
             method: 'PUT',
@@ -252,7 +347,7 @@ async function saveEditInRecord() {
         }
 
         const data = await response.json();
-        
+
         if (data.success) {
             alert('修改入库成功！');
             // 关闭模态框

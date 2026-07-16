@@ -3,65 +3,79 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const path = require('path');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 
 const sessionConfig = require('./config/session');
 const { requireLogin, checkLoggedIn } = require('./middleware/auth');
+const { doubleCsrf } = require('./middleware/csrf');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const logRoutes = require('./routes/logRoutes');
+const supplierRoutes = require('./routes/supplierRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const importRoutes = require('./routes/importRoutes');
+const batchRoutes = require('./routes/batchRoutes');
+const stocktakingRoutes = require('./routes/stocktakingRoutes');
 const logger = require('./utils/logger');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-// CORS 支持（允许 Apifox 等工具跨域访问）
+// CORS
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Swagger API 文档 - 提供 JSON 端点供 Apifox 导入
+// Swagger
 app.get('/api-docs.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
 });
-
-// Swagger UI 界面
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: '仓库管理系统 API 文档'
 }));
 
-// 中间件配置
+// Body parser FIRST
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(express.static('public'));
+
+// Session BEFORE static (critical!)
 app.use(session(sessionConfig));
-app.use(checkLoggedIn); // 全局登录状态检查
+app.use(cookieParser());
 
-// API路由
-app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api', inventoryRoutes);
-app.use('/api/logs', logRoutes);
+// CSRF disabled - frontend doesn't use CSRF tokens
+// app.use((req, res, next) => {
+//     if (req.path.startsWith('/api/')) return next();
+//     doubleCsrf(req, res, next);
+// });
 
-// 保护所有需要登录的页面
+// Login status check
+app.use(checkLoggedIn);
+
+// Protected pages BEFORE static file serving
 const protectedPages = [
-    '/index.html', 
-    '/products.html', 
+    '/index.html',
+    '/products.html',
     '/product_list.html',
-    '/in.html', 
-    '/out.html', 
-    '/in_records.html', 
-    '/out_records.html', 
-    '/stock.html', 
+    '/in.html',
+    '/out.html',
+    '/in_records.html',
+    '/out_records.html',
+    '/stock.html',
     '/query.html',
-    '/settings.html'
+    '/settings.html',
+    '/suppliers.html',
+    '/dashboard.html',
+    '/import.html',
+    '/batch.html',
+    '/stocktaking.html'
 ];
 
 protectedPages.forEach(page => {
@@ -70,7 +84,7 @@ protectedPages.forEach(page => {
     });
 });
 
-// 重定向根路径
+// Root redirect
 app.get('/', (req, res) => {
     if (req.isLoggedIn) {
         res.redirect('/index.html');
@@ -79,7 +93,26 @@ app.get('/', (req, res) => {
     }
 });
 
-// 启动服务器
+// Static files AFTER protected routes
+app.use(express.static('public'));
+
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api', inventoryRoutes);
+app.use('/api/logs', logRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/import', importRoutes);
+app.use('/api/batch', batchRoutes);
+app.use('/api/stocktaking', stocktakingRoutes);
+
+// Global error handler
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err);
+    res.status(500).json({ success: false, message: '服务器内部错误' });
+});
+
 app.listen(port, () => {
     console.log(`仓库管理系统运行在 http://localhost:${port}`);
     console.log(`API 文档地址: http://localhost:${port}/api-docs`);

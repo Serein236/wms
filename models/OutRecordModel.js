@@ -1,5 +1,6 @@
 // models/OutRecordModel.js
 const dbUtils = require('../utils/dbUtils');
+const { addPagination } = require('../utils/pagination');
 
 const OutRecordModel = {
     async create(recordData, connection = null) {
@@ -75,6 +76,66 @@ const OutRecordModel = {
             [productId, month],
             connection
         );
+    },
+
+    async countAll(month = null, productId = null, connection = null) {
+        let whereCondition = '';
+        const params = [];
+
+        if (productId) {
+            whereCondition += 'WHERE o.product_id = ?';
+            params.push(productId);
+        }
+
+        if (month) {
+            if (whereCondition) {
+                whereCondition += ' AND ';
+            } else {
+                whereCondition += 'WHERE ';
+            }
+            whereCondition += 'DATE_FORMAT(o.recorded_date, "%Y-%m") = ?';
+            params.push(month);
+        }
+
+        const result = await dbUtils.queryOne(
+            `SELECT COUNT(*) as count FROM out_records o JOIN products p ON o.product_id = p.id ${whereCondition}`,
+            params,
+            connection
+        );
+        return result ? result.count : 0;
+    },
+
+    async findAllPaginated(month = null, productId = null, pagination, connection = null) {
+        let whereCondition = '';
+        const params = [];
+
+        if (productId) {
+            whereCondition += 'WHERE o.product_id = ?';
+            params.push(productId);
+        }
+
+        if (month) {
+            if (whereCondition) {
+                whereCondition += ' AND ';
+            } else {
+                whereCondition += 'WHERE ';
+            }
+            whereCondition += 'DATE_FORMAT(o.recorded_date, "%Y-%m") = ?';
+            params.push(month);
+        }
+
+        const baseQuery = `
+            SELECT o.*,
+                   DATE_FORMAT(o.recorded_date, '%Y-%m-%d') as display_date,
+                   DATE_FORMAT(o.created_at, '%Y-%m-%d') as created_at,
+                   p.name as product_name
+            FROM out_records o
+            JOIN products p ON o.product_id = p.id
+            ${whereCondition}
+            ORDER BY o.recorded_date DESC, o.created_at DESC
+        `;
+
+        return await dbUtils.query(addPagination(baseQuery, pagination), params, connection);
     },
 
     async findById(id, connection = null) {

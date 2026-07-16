@@ -43,10 +43,7 @@ async function checkLogin() {
             }
             loadSettings();
         }
-    } catch (error) {
-        console.error('检查登录状态失败:', error);
-        window.location.href = 'login.html';
-    }
+    } catch (error) { console.error(error); }
 }
 
 // 加载设置

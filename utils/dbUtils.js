@@ -62,6 +62,18 @@ const dbUtils = {
     },
 
     /**
+     * 执行计数查询
+     * @param {string} sql SQL语句
+     * @param {Array} params 参数数组
+     * @returns {Promise<number>} 计数结果
+     */
+    async count(sql, params = [], connection = null) {
+        const executor = connection || promisePool;
+        const [rows] = await executor.query(sql, params);
+        return rows[0].count || 0;
+    },
+
+    /**
      * 开始事务
      * @returns {Promise<void>}
      */

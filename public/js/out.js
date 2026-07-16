@@ -31,10 +31,7 @@ async function checkLogin() {
                     // 初始化商品信息显示
                     showProductInfo();
                 }
-            } catch (error) {
-                console.error('检查登录状态失败:', error);
-                window.location.href = 'login.html';
-            }
+            } catch (error) { console.error(error); }
         }
 
         async function loadStockMethods(type) {
@@ -338,6 +335,7 @@ async function checkLogin() {
         function setupCustomerAutocomplete() {
             const destinationInput = document.getElementById('destination');
             const suggestionsContainer = document.getElementById('customerSuggestions');
+            if (!destinationInput) return;
             let debounceTimer;
             let selectedIndex = -1;
             let currentCustomers = [];
@@ -347,14 +345,15 @@ async function checkLogin() {
                 selectedIndex = -1;
                 const query = this.value.trim();
 
-                if (query.length >= 2) {
+                if (query.length >= 1) {
                     debounceTimer = setTimeout(async () => {
                         try {
-                            const response = await fetch(`/api/customers?query=${encodeURIComponent(query)}`);
+                            const response = await fetch(`/api/suppliers/search?query=${encodeURIComponent(query)}`);
                             if (!response.ok) {
                                 throw new Error(`HTTP错误: ${response.status}`);
                             }
-                            currentCustomers = await response.json();
+                            const result = await response.json();
+                            currentCustomers = (result.data || []).map(s => s.name || s);
                             showCustomerSuggestions(currentCustomers);
                         } catch (error) {
                             console.error('获取客户列表失败:', error);
@@ -405,15 +404,24 @@ async function checkLogin() {
             }
 
             function showCustomerSuggestions(customers) {
+                if (!suggestionsContainer) return;
                 suggestionsContainer.innerHTML = '';
                 selectedIndex = -1;
-                if (customers.length > 0) {
-                    customers.forEach((customer, index) => {
+                const query = destinationInput.value.trim();
+                let allSuggestions = [...customers];
+                if (query && !customers.includes(query)) {
+                    allSuggestions.unshift(query);
+                }
+                if (allSuggestions.length > 0) {
+                    allSuggestions.forEach((customer, index) => {
                         const suggestionItem = document.createElement('div');
                         suggestionItem.className = 'suggestion-item p-2 cursor-pointer';
                         suggestionItem.style.borderBottom = '1px solid #f0f0f0';
                         suggestionItem.style.transition = 'background-color 0.15s';
                         suggestionItem.textContent = customer;
+                        if (index === 0 && !customers.includes(query)) {
+                            suggestionItem.innerHTML = '<span class="text-primary"><i class="bi bi-plus-circle me-1"></i>新增: </span>' + customer;
+                        }
                         suggestionItem.dataset.index = index;
 
                         suggestionItem.addEventListener('mouseenter', () => {
@@ -435,6 +443,7 @@ async function checkLogin() {
             }
 
             function hideCustomerSuggestions() {
+                if (!suggestionsContainer) return;
                 suggestionsContainer.classList.add('d-none');
                 selectedIndex = -1;
                 currentCustomers = [];
@@ -442,7 +451,7 @@ async function checkLogin() {
 
             // 点击页面其他地方关闭建议列表
             document.addEventListener('click', function(event) {
-                if (!destinationInput.contains(event.target) && !suggestionsContainer.contains(event.target)) {
+                if (suggestionsContainer && !destinationInput.contains(event.target) && !suggestionsContainer.contains(event.target)) {
                     hideCustomerSuggestions();
                 }
             });

@@ -5,6 +5,10 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+// 分页状态
+let stockPagination = PaginationHelper.getDefaultState();
+let allStockData = [];
+
 async function checkLogin() {
             try {
                 const response = await fetch('/api/auth/current-user');
@@ -16,13 +20,14 @@ async function checkLogin() {
                     document.getElementById('currentUser').textContent = `欢迎, ${data.username}`;
                     loadStock();
                 }
-            } catch (error) {
-                console.error('检查登录状态失败:', error);
-                window.location.href = 'login.html';
-            }
+            } catch (error) { console.error(error); }
         }
 
-        async function loadStock() {
+        async function loadStock(page) {
+            const paginationDiv = document.getElementById('paginationControls');
+
+            if (page) stockPagination.page = page;
+
             try {
                 const loadingRow = document.getElementById('loadingRow');
                 if (loadingRow) {
@@ -34,16 +39,26 @@ async function checkLogin() {
                     noDataMessage.style.display = 'none';
                 }
 
-                const response = await fetch('/api/stock');
+                const url = PaginationHelper.buildUrl('/api/stock', {}, stockPagination);
+                const response = await fetch(url);
 
                 if (!response.ok) {
                     throw new Error(`HTTP错误: ${response.status}`);
                 }
 
-                const stockData = await response.json();
+                const result = await response.json();
 
                 if (loadingRow) {
                     loadingRow.style.display = 'none';
+                }
+
+                // Handle both paginated and non-paginated responses
+                let stockData;
+                if (result.success && result.data) {
+                    stockData = result.data;
+                    stockPagination = { ...stockPagination, ...result.pagination };
+                } else {
+                    stockData = result;
                 }
 
                 if (stockData.error) {
@@ -55,9 +70,18 @@ async function checkLogin() {
                     if (noDataMessage) {
                         noDataMessage.style.display = 'block';
                     }
+                    if (paginationDiv) paginationDiv.innerHTML = '';
                 }
 
+                allStockData = stockData;
                 renderStock(stockData);
+
+                // Render pagination controls
+                if (paginationDiv && result.pagination) {
+                    paginationDiv.innerHTML = PaginationHelper.render(result.pagination, 'loadStock');
+                } else if (paginationDiv) {
+                    paginationDiv.innerHTML = '';
+                }
             } catch (error) {
                 console.error('加载库存失败:', error);
 
@@ -80,7 +104,26 @@ async function checkLogin() {
         }
 
         function refreshStock() {
+            stockPagination.page = 1;
             loadStock();
+        }
+
+        function filterStock() {
+            const searchQuery = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+            const statusFilter = document.getElementById('statusFilter')?.value || '';
+            let filtered = allStockData;
+
+            if (searchQuery) {
+                filtered = filtered.filter(item =>
+                    (item.product_name || '').toLowerCase().includes(searchQuery) ||
+                    (item.product_spec || '').toLowerCase().includes(searchQuery) ||
+                    String(item.product_id).includes(searchQuery)
+                );
+            }
+            if (statusFilter) {
+                filtered = filtered.filter(item => item.batch_status === statusFilter);
+            }
+            renderStock(filtered);
         }
 
         function renderStock(stockData) {

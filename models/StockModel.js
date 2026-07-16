@@ -66,6 +66,37 @@ const StockModel = {
         return true;
     },
 
+    async countBatchStockReport(connection = null) {
+        const result = await dbUtils.queryOne(`
+            SELECT COUNT(*) as count
+            FROM batch_stock b
+            JOIN products p ON b.product_id = p.id
+            JOIN stock_inventory s ON b.product_id = s.product_id
+            JOIN in_records i ON b.product_id = i.product_id AND b.batch_number = i.batch_number
+            WHERE b.batch_current_stock > 0
+            GROUP BY p.id, p.name, p.spec, p.unit, s.warning_quantity, s.danger_quantity,
+                     b.batch_number, b.production_date, b.expiration_date,
+                     b.batch_in_quantity, b.batch_out_quantity, b.batch_current_stock,
+                     b.batch_status, b.id
+        `, [], connection);
+        // Since GROUP BY produces multiple rows, count total grouped rows
+        const rows = await dbUtils.query(`
+            SELECT COUNT(*) as count FROM (
+                SELECT 1
+                FROM batch_stock b
+                JOIN products p ON b.product_id = p.id
+                JOIN stock_inventory s ON b.product_id = s.product_id
+                JOIN in_records i ON b.product_id = i.product_id AND b.batch_number = i.batch_number
+                WHERE b.batch_current_stock > 0
+                GROUP BY p.id, p.name, p.spec, p.unit, s.warning_quantity, s.danger_quantity,
+                         b.batch_number, b.production_date, b.expiration_date,
+                         b.batch_in_quantity, b.batch_out_quantity, b.batch_current_stock,
+                         b.batch_status, b.id
+            ) t
+        `, [], connection);
+        return rows[0] ? rows[0].count : 0;
+    },
+
     async getLowStockProducts(connection = null) {
         return await dbUtils.query(`
             SELECT 

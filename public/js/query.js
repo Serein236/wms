@@ -27,16 +27,22 @@ async function checkLogin() {
                     document.getElementById('currentUser').textContent = `欢迎, ${data.username}`;
                     loadProducts();
                 }
-            } catch (error) {
-                console.error('检查登录状态失败:', error);
-                window.location.href = 'login.html';
-            }
+            } catch (error) { console.error(error); }
         }
 
         async function loadProducts() {
             try {
-                const response = await fetch('/api/products');
-                const products = await response.json();
+                // Load all products for dropdown (use large page size)
+                const response = await fetch('/api/products?pageSize=1000');
+                const result = await response.json();
+
+                // Handle both paginated and non-paginated responses
+                let products;
+                if (result.success && result.data) {
+                    products = result.data;
+                } else {
+                    products = result;
+                }
 
                 const select = document.getElementById('productId');
                 select.innerHTML = '<option value="">请选择商品（可选）</option>';

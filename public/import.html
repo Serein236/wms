@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据导入 - 仓库管理系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="css/common.css" rel="stylesheet">
+    <link href="css/modern.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="index.html"><i class="bi bi-warehouse me-2"></i>仓库管理系统</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-house-door me-1"></i>首页</a></li>
+                    <li class="nav-item"><a class="nav-link" href="product_list.html"><i class="bi bi-box-seam me-1"></i>商品管理</a></li>
+                    <li class="nav-item"><a class="nav-link" href="in.html"><i class="bi bi-arrow-down-circle me-1"></i>入库</a></li>
+                    <li class="nav-item"><a class="nav-link" href="out.html"><i class="bi bi-arrow-up-circle me-1"></i>出库</a></li>
+                    <li class="nav-item"><a class="nav-link" href="stock.html"><i class="bi bi-clipboard-data me-1"></i>库存</a></li>
+                    <li class="nav-item"><a class="nav-link" href="suppliers.html"><i class="bi bi-truck me-1"></i>供应商</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="dashboard.html"><i class="bi bi-bar-chart me-1"></i>看板</a></li>
+                    <li class="nav-item"><a class="nav-link" href="batch.html"><i class="bi bi-list-columns me-1"></i>批量</a></li>
+                    <li class="nav-item"><a class="nav-link" href="stocktaking.html"><i class="bi bi-clipboard-check me-1"></i>盘点</a></li>
+                    <li class="nav-item"><a class="nav-link" href="settings.html"><i class="bi bi-gear me-1"></i>设置</a></li>
+                </ul>
+                <div class="d-flex align-items-center text-white">
+                    <span id="currentUser" class="me-3"></span>
+                    <button class="btn btn-outline-light btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right me-1"></i>退出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+
+    <div class="container-fluid main-content">
+        <div class="page-header" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 2rem; border-radius: 12px; margin-bottom: 1.5rem;">
+            <h2 class="mb-1"><i class="bi bi-upload me-2"></i>数据导入</h2>
+            <p class="mb-0">支持 Excel 和 CSV 文件批量导入商品数据</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header"><i class="bi bi-cloud-arrow-up me-2"></i>上传文件</div>
+                    <div class="card-body">
+                        <div class="upload-zone" id="uploadZone" style="border:3px dashed #dee2e6;border-radius:12px;padding:3rem;text-align:center;cursor:pointer;">
+                            <i class="bi bi-cloud-arrow-up d-block mb-3" style="font-size:3rem;color:#6c757d;"></i>
+                            <h5>拖拽文件到此处或点击选择</h5>
+                            <p class="text-muted mb-3">支持 .xlsx, .xls, .csv 格式，最大 10MB</p>
+                            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="d-none">
+                            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()"><i class="bi bi-folder2-open me-1"></i>选择文件</button>
+                        </div>
+                        <div id="selectedFile" class="mt-3 d-none">
+                            <div class="alert alert-info d-flex justify-content-between align-items-center"><span><i class="bi bi-file-earmark-excel me-2"></i><span id="fileName"></span></span><button class="btn btn-sm btn-outline-danger" onclick="clearFile()"><i class="bi bi-x"></i></button></div>
+                            <button class="btn btn-success w-100" id="importBtn" onclick="startImport()"><i class="bi bi-cloud-arrow-up me-1"></i>开始导入</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card mb-3">
+                    <div class="card-header"><i class="bi bi-info-circle me-2"></i>导入说明</div>
+                    <div class="card-body">
+                        <h6>必填字段</h6><ul class="list-unstyled"><li><code>name</code> - 商品名称</li></ul>
+                        <h6>可选字段</h6><ul class="list-unstyled"><li><code>spec</code> - 规格</li><li><code>unit</code> - 单位</li><li><code>retail_price</code> - 零售价</li></ul>
+                    </div>
+                </div>
+                <a href="/api/import/template" class="btn btn-outline-primary w-100"><i class="bi bi-download me-1"></i>下载导入模板</a>
+            </div>
+        </div>
+    </div>
+
+    <footer><div class="container">&copy; 2026 仓库管理系统 | <a href="https://beian.miit.gov.cn/" target="_blank" class="text-decoration-none text-reset">鄂ICP备2025167566号</a></div></footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="js/config.js"></script>
+
+    <script src="js/import.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var b = document.querySelector('footer a[href*="beian.miit.gov.cn"]');
+            if (b && config && config.beian) b.textContent = config.beian;
+        });
+    </script>
+</body>
+</html>

@@ -11,10 +11,7 @@ async function checkLogin() {
                 } else {
                     document.getElementById('currentUser').textContent = `欢迎, ${data.username}`;
                 }
-            } catch (error) {
-                console.error('检查登录状态失败:', error);
-                window.location.href = 'login.html';
-            }
+            } catch (error) { console.error(error); }
         }
 
         document.getElementById('addProductForm').addEventListener('submit', async function (e) {
