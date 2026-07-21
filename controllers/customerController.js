@@ -11,15 +11,15 @@ const customerController = {
             let total;
             if (query && query.length >= 1) {
                 customers = await dbUtils.query(
-                    'SELECT * FROM suppliers WHERE name LIKE ? ORDER BY name ASC',
+                    'SELECT * FROM customers WHERE name LIKE ? ORDER BY name ASC',
                     ['%' + query + '%']
                 );
                 total = customers.length;
                 customers = customers.slice(pagination.offset, pagination.offset + pagination.limit);
             } else {
-                total = await dbUtils.queryOne('SELECT COUNT(*) as count FROM suppliers');
-                total = total.count;
-                customers = await dbUtils.query(addPagination('SELECT * FROM suppliers ORDER BY name ASC', pagination));
+                const countResult = await dbUtils.queryOne('SELECT COUNT(*) as count FROM customers');
+                total = countResult.count;
+                customers = await dbUtils.query(addPagination('SELECT * FROM customers ORDER BY name ASC', pagination));
             }
 
             res.json({ success: true, data: customers, pagination: buildPaginationResponse(total, pagination) });
@@ -31,7 +31,7 @@ const customerController = {
 
     async get(req, res) {
         try {
-            const customer = await dbUtils.queryOne('SELECT * FROM suppliers WHERE id = ?', [req.params.id]);
+            const customer = await dbUtils.queryOne('SELECT * FROM customers WHERE id = ?', [req.params.id]);
             if (!customer) return res.status(404).json({ success: false, message: '客户不存在' });
             res.json({ success: true, data: customer });
         } catch (error) {
@@ -43,12 +43,12 @@ const customerController = {
         const { name } = req.body;
         if (!name) return res.status(400).json({ success: false, message: '客户名称不能为空' });
         try {
-            const existing = await dbUtils.queryOne('SELECT id FROM suppliers WHERE name = ?', [name]);
+            const existing = await dbUtils.queryOne('SELECT id FROM customers WHERE name = ?', [name]);
             if (existing) return res.status(400).json({ success: false, message: '客户名称已存在' });
 
             const { contact_person, phone, email, address, remark } = req.body;
             const result = await dbUtils.insert(
-                'INSERT INTO suppliers (name, contact_person, phone, email, address, remark) VALUES (?, ?, ?, ?, ?, ?)',
+                'INSERT INTO customers (name, contact_person, phone, email, address, remark) VALUES (?, ?, ?, ?, ?, ?)',
                 [name, contact_person || null, phone || null, email || null, address || null, remark || null]
             );
             res.json({ success: true, data: { id: result.insertId, ...req.body } });
@@ -60,11 +60,11 @@ const customerController = {
 
     async update(req, res) {
         try {
-            const customer = await dbUtils.queryOne('SELECT * FROM suppliers WHERE id = ?', [req.params.id]);
+            const customer = await dbUtils.queryOne('SELECT * FROM customers WHERE id = ?', [req.params.id]);
             if (!customer) return res.status(404).json({ success: false, message: '客户不存在' });
 
             if (req.body.name && req.body.name !== customer.name) {
-                const existing = await dbUtils.queryOne('SELECT id FROM suppliers WHERE name = ?', [req.body.name]);
+                const existing = await dbUtils.queryOne('SELECT id FROM customers WHERE name = ?', [req.body.name]);
                 if (existing) return res.status(400).json({ success: false, message: '客户名称已存在' });
             }
 
@@ -78,7 +78,7 @@ const customerController = {
             }
             if (fields.length === 0) return res.json({ success: true, message: '无更新' });
             values.push(req.params.id);
-            await dbUtils.update('UPDATE suppliers SET ' + fields.join(', ') + ' WHERE id = ?', values);
+            await dbUtils.update('UPDATE customers SET ' + fields.join(', ') + ' WHERE id = ?', values);
             res.json({ success: true, message: '更新成功' });
         } catch (error) {
             console.error('更新客户错误:', error);
@@ -88,7 +88,7 @@ const customerController = {
 
     async delete(req, res) {
         try {
-            await dbUtils.delete('DELETE FROM suppliers WHERE id = ?', [req.params.id]);
+            await dbUtils.delete('DELETE FROM customers WHERE id = ?', [req.params.id]);
             res.json({ success: true, message: '删除成功' });
         } catch (error) {
             res.status(500).json({ success: false, message: '删除客户失败' });
@@ -102,7 +102,7 @@ const customerController = {
                 return res.json({ success: true, data: [] });
             }
             const customers = await dbUtils.query(
-                'SELECT * FROM suppliers WHERE name LIKE ? ORDER BY name ASC',
+                'SELECT * FROM customers WHERE name LIKE ? ORDER BY name ASC',
                 ['%' + query + '%']
             );
             res.json({ success: true, data: customers });

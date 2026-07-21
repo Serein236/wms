@@ -348,7 +348,7 @@ async function checkLogin() {
                 if (query.length >= 1) {
                     debounceTimer = setTimeout(async () => {
                         try {
-                            const response = await fetch(`/api/suppliers/search?query=${encodeURIComponent(query)}`);
+                            const response = await fetch(`/api/customers/search?query=${encodeURIComponent(query)}`);
                             if (!response.ok) {
                                 throw new Error(`HTTP错误: ${response.status}`);
                             }

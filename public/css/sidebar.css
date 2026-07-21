@@ -103,6 +103,16 @@ body {
     text-overflow: ellipsis;
 }
 
+.sidebar-footer .btn-outline-light {
+    color: #fff;
+    border-color: rgba(255,255,255,0.3);
+}
+
+.sidebar-footer .btn-outline-light:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
 /* 主内容区 */
 .main-wrapper {
     margin-left: 220px;

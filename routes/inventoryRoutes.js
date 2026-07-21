@@ -350,16 +350,14 @@ router.get('/product-batches/:productId', inventoryController.getProductBatches)
  * @swagger
  * /customers:
  *   get:
- *     summary: 客户列表
- *     description: 获取客户列表
+ *     summary: 客户列表（已迁移到 /api/customers）
+ *     description: 请使用 /api/customers 接口
  *     tags: [库存管理]
  *     responses:
- *       200:
- *         description: 客户列表
- *       500:
- *         description: 查询失败
+ *       301:
+ *         description: 重定向到 /api/customers
  */
-router.get('/customers', inventoryController.getCustomers);
+// 客户管理已迁移到 /api/customers
 
 /**
  * @swagger

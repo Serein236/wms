@@ -89,11 +89,11 @@ const inventoryController = {
             const product = await dbUtils.queryOne('SELECT name FROM products WHERE id = ?', [product_id]);
             const productName = product ? product.name : '未知商品';
 
-            // Auto-create supplier if new name
+            // Auto-create customer if new name
             if (destination && destination.trim()) {
-                const existing = await dbUtils.queryOne('SELECT id FROM suppliers WHERE name = ?', [destination.trim()]);
+                const existing = await dbUtils.queryOne('SELECT id FROM customers WHERE name = ?', [destination.trim()]);
                 if (!existing) {
-                    await dbUtils.insert('INSERT IGNORE INTO suppliers (name) VALUES (?)', [destination.trim()]);
+                    await dbUtils.insert('INSERT IGNORE INTO customers (name) VALUES (?)', [destination.trim()]);
                 }
             }
 
