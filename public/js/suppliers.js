@@ -20,7 +20,8 @@ async function checkLogin() {
         } else {
             var el = document.getElementById('currentUser');
             if (el) el.textContent = `欢迎, ${data.username}`;
-            supplierModal = new bootstrap.Modal(document.getElementById('supplierModal'));
+            var modalEl = document.getElementById('supplierModal');
+            if (modalEl) supplierModal = new bootstrap.Modal(modalEl);
             loadSuppliers();
         }
     } catch (error) { console.error(error); }
