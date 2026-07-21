@@ -120,6 +120,18 @@ function renderSidebar(activePage) {
             });
         } catch (e) {}
     }
+
+    // 自动获取当前用户信息
+    updateSidebarUser();
+}
+
+function updateSidebarUser() {
+    fetch('/api/auth/current-user').then(function(r) { return r.json(); }).then(function(data) {
+        var el = document.getElementById('currentUser');
+        if (el && data.loggedIn) {
+            el.textContent = '欢迎, ' + data.username;
+        }
+    }).catch(function() {});
 }
 
 function toggleSubmenu(el) {
