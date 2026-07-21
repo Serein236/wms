@@ -132,3 +132,9 @@ function toggleSubmenu(el) {
     });
     localStorage.setItem('sidebar_state', JSON.stringify(state));
 }
+
+function logout() {
+    fetch('/api/auth/logout', { method: 'POST' }).then(function() {
+        window.location.href = 'login.html';
+    });
+}
