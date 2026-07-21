@@ -4,52 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>系统设置 - 仓库管理系统</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" rel="stylesheet">
-    <!-- 公共样式 -->
     <link href="css/common.css" rel="stylesheet">
-    <!-- Modern 现代化样式 -->
     <link href="css/modern.css" rel="stylesheet">
-    <style>
-        .settings-card {
-            transition: all 0.3s;
-        }
-        .settings-card:hover {
-            box-shadow: 0 5px 15px rgba(0,0,0,.1);
-        }
-        .form-label {
-            font-weight: 500;
-        }
-        .setting-section {
-            border-bottom: 1px solid #e9ecef;
-            padding-bottom: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-        .setting-section:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-            margin-bottom: 0;
-        }
-    </style>
+    <link href="css/sidebar.css" rel="stylesheet">
+    
 </head>
-
 <body>
-    <!-- 简洁顶部栏 -->
-    <nav class="navbar navbar-dark bg-dark fixed-top">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="index.html">
-                <i class="bi bi-warehouse me-2"></i>仓库管理系统
-            </a>
-            <a href="index.html" class="btn btn-outline-light btn-sm">
-                <i class="bi bi-house-door me-1"></i>返回首页
-            </a>
-        </div>
-    </nav>
+    <div class="sidebar" id="sidebar"></div>
 
-    <!-- 主内容区 -->
-    <div class="container-fluid main-content">
+    <div class="main-wrapper">
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div>
+                <h2><i class="bi bi-gear me-2"></i>系统设置</h2>
+                <p class="mb-0">管理系统配置</p>
+            </div>
+            <div id="headerActions"></div>
+        </div>
+
         <div class="page-header">
             <h2 class="mb-1"><i class="bi bi-gear me-2"></i>系统设置</h2>
             <p class="mb-0">配置系统参数和个性化选项</p>
@@ -731,6 +704,8 @@
     </div>
 
     <!-- Footer -->
+    </div>
+
     <footer>
         <div class="container">
             &copy; 2026 仓库管理系统 | <a href="https://beian.miit.gov.cn/" target="_blank"
@@ -738,19 +713,22 @@
         </div>
     </footer>
 
-    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/settings.js"></script>
+    <script src="js/sidebar.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            renderSidebar('settings.html');
+            document.addEventListener('DOMContentLoaded', function() {
             const beianLink = document.querySelector('footer a[href*="beian.miit.gov.cn"]');
             if (beianLink && config.beian) {
                 beianLink.textContent = config.beian;
             }
         });
+        });
     </script>
 </body>
-
 </html>

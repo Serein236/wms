@@ -1,0 +1,130 @@
+/* 侧边栏样式 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    background: #f5f6fa;
+    min-height: 100vh;
+}
+
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 220px;
+    height: 100vh;
+    background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+    color: #fff;
+    overflow-y: auto;
+    z-index: 1000;
+    transition: width 0.3s;
+}
+
+.sidebar-brand {
+    padding: 20px 15px;
+    font-size: 16px;
+    font-weight: bold;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    white-space: nowrap;
+}
+
+.sidebar-nav {
+    padding: 10px 0;
+}
+
+.sidebar-item {
+    margin: 2px 8px;
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.sidebar-link:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+.sidebar-link.active {
+    background: rgba(66,133,244,0.3);
+    color: #fff;
+    font-weight: 500;
+}
+
+.sidebar-link .arrow {
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+
+.sidebar-submenu {
+    display: none;
+    padding-left: 16px;
+}
+
+.sidebar-submenu.show {
+    display: block;
+}
+
+.sidebar-submenu .sidebar-link {
+    font-size: 13px;
+    padding: 8px 12px;
+}
+
+.sidebar-submenu .sidebar-submenu .sidebar-link {
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+.sidebar-footer {
+    padding: 15px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: #1a1a2e;
+}
+
+.sidebar-user {
+    font-size: 13px;
+    margin-bottom: 8px;
+    padding: 5px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 主内容区 */
+.main-wrapper {
+    margin-left: 220px;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px 24px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.page-header h2 { margin: 0 0 5px 0; font-size: 20px; }
+.page-header p { margin: 0; font-size: 14px; opacity: 0.9; }
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .sidebar { width: 60px; }
+    .sidebar-brand span, .sidebar-link span, .sidebar-submenu { display: none; }
+    .sidebar-link { justify-content: center; padding: 12px; }
+    .sidebar-link .bi { margin: 0; font-size: 18px; }
+    .sidebar-footer { display: none; }
+    .main-wrapper { margin-left: 60px; }
+}
