@@ -23,9 +23,9 @@ const menus = [
                 { icon: 'bi-plus-circle', label: '新增出库', href: 'out.html' },
                 { icon: 'bi-list-ul', label: '出库列表', href: 'out_records.html' }
             ]},
-            { icon: 'bi-list-columns', label: '批量管理', href: 'batch.html', active: ['batch.html'], children: [
-                { icon: 'bi-arrow-down-circle', label: '批量入库', href: 'batch.html' },
-                { icon: 'bi-arrow-up-circle', label: '批量出库', href: 'batch.html' }
+            { icon: 'bi-list-columns', label: '批量管理', href: 'batch_in.html', active: ['batch_in.html', 'batch_out.html'], children: [
+                { icon: 'bi-arrow-down-circle', label: '批量入库', href: 'batch_in.html' },
+                { icon: 'bi-arrow-up-circle', label: '批量出库', href: 'batch_out.html' }
             ]}
         ]
     },
@@ -39,9 +39,9 @@ const menus = [
     },
     {
         icon: 'bi-truck', label: '供应商管理', href: 'suppliers.html',
-        active: ['suppliers.html'],
+        active: ['suppliers.html', 'supplier_add.html'],
         children: [
-            { icon: 'bi-plus-circle', label: '新增供应商', href: 'suppliers.html' },
+            { icon: 'bi-plus-circle', label: '新增供应商', href: 'supplier_add.html' },
             { icon: 'bi-list-check', label: '供应商列表', href: 'suppliers.html' }
         ]
     },

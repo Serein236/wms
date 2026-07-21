@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量出库 - 仓库管理系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="css/common.css" rel="stylesheet">
+    <link href="css/modern.css" rel="stylesheet">
+    <link href="css/sidebar.css" rel="stylesheet">
+</head>
+<body>
+    <div class="sidebar" id="sidebar"></div>
+    <div class="main-wrapper">
+        <div class="page-header"><h2><i class="bi bi-arrow-up-circle me-2"></i>批量出库</h2><p class="mb-0">一次性处理多个商品的出库操作</p></div>
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header"><i class="bi bi-list-check me-2"></i>出库列表</div>
+                    <div class="card-body">
+                        <div id="batchItems"></div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button class="btn btn-outline-primary" onclick="addItem()"><i class="bi bi-plus-circle me-1"></i>添加一行</button>
+                            <button class="btn btn-outline-success" onclick="document.getElementById('fileInput').click()"><i class="bi bi-upload me-1"></i>从文件导入</button>
+                            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="d-none" onchange="handleFileUpload(event)">
+                            <a href="/api/batch/template" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download me-1"></i>下载模板</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card mb-3">
+                    <div class="card-header"><i class="bi bi-gear me-2"></i>公共设置</div>
+                    <div class="card-body">
+                        <div class="mb-3"><label class="form-label">客户名称</label><input type="text" class="form-control" id="commonSource" placeholder="客户名称"></div>
+                        <div class="mb-3"><label class="form-label">记录日期</label><input type="date" class="form-control" id="commonDate"></div>
+                        <div class="mb-3"><label class="form-label">备注</label><textarea class="form-control" id="commonRemark" rows="2" placeholder="可选备注"></textarea></div>
+                    </div>
+                </div>
+                <div class="card mb-3"><div class="card-body text-center"><div class="fs-1 fw-bold text-warning" id="totalCount">0</div><div class="text-muted">待处理项目</div></div></div>
+                <button class="btn btn-warning btn-lg w-100" onclick="submitBatch()" id="submitBtn"><i class="bi bi-check-circle me-1"></i>提交批量出库</button>
+            </div>
+        </div>
+    </div>
+    <footer><div class="container">&copy; 2026 仓库管理系统 | <a href="https://beian.miit.gov.cn/" target="_blank" class="text-decoration-none text-reset">鄂ICP备2025167566号</a></div></footer>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/batch.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            renderSidebar('batch.html');
+            currentMode = 'out';
+            document.getElementById('commonDate').value = new Date().toISOString().split('T')[0];
+            loadProducts().then(function() { addItem(); });
+        });
+    </script>
+</body>
+</html>

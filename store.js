@@ -75,9 +75,12 @@ const protectedPages = [
     '/query.html',
     '/settings.html',
     '/suppliers.html',
+    '/supplier_add.html',
     '/dashboard.html',
     '/import.html',
     '/batch.html',
+    '/batch_in.html',
+    '/batch_out.html',
     '/stocktaking.html',
     '/customers.html',
     '/customer_list.html'

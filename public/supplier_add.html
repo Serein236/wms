@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新增供应商 - 仓库管理系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="css/common.css" rel="stylesheet">
+    <link href="css/modern.css" rel="stylesheet">
+    <link href="css/sidebar.css" rel="stylesheet">
+</head>
+<body>
+    <div class="sidebar" id="sidebar"></div>
+    <div class="main-wrapper">
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div><h2><i class="bi bi-truck me-2"></i>供应商管理</h2><p class="mb-0">新增供应商信息</p></div>
+            <a href="suppliers.html" class="btn btn-outline-light btn-sm"><i class="bi bi-list-check me-1"></i>供应商列表</a>
+        </div>
+        <div class="card">
+            <div class="card-header"><i class="bi bi-plus-circle me-2"></i>新增供应商</div>
+            <div class="card-body">
+                <form id="addSupplierForm">
+                    <div class="row g-3">
+                        <div class="col-md-4"><label class="form-label">供应商名称 <span class="text-danger">*</span></label><input type="text" class="form-control" id="supplierName" required placeholder="供应商名称"></div>
+                        <div class="col-md-4"><label class="form-label">联系人</label><input type="text" class="form-control" id="supplierContact" placeholder="联系人"></div>
+                        <div class="col-md-4"><label class="form-label">联系电话</label><input type="text" class="form-control" id="supplierPhone" placeholder="联系电话"></div>
+                        <div class="col-md-4"><label class="form-label">邮箱</label><input type="email" class="form-control" id="supplierEmail" placeholder="邮箱"></div>
+                        <div class="col-md-4"><label class="form-label">地址</label><input type="text" class="form-control" id="supplierAddress" placeholder="地址"></div>
+                        <div class="col-md-4"><label class="form-label">备注</label><input type="text" class="form-control" id="supplierRemark" placeholder="备注"></div>
+                        <div class="col-12"><button type="submit" class="btn btn-primary"><i class="bi bi-check-circle me-2"></i>添加供应商</button></div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <footer><div class="container">&copy; 2026 仓库管理系统 | <a href="https://beian.miit.gov.cn/" target="_blank" class="text-decoration-none text-reset">鄂ICP备2025167566号</a></div></footer>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            renderSidebar('suppliers.html');
+            document.getElementById('addSupplierForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                try {
+                    var resp = await fetch('/api/suppliers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: document.getElementById('supplierName').value, contact_person: document.getElementById('supplierContact').value || null, phone: document.getElementById('supplierPhone').value || null, email: document.getElementById('supplierEmail').value || null, address: document.getElementById('supplierAddress').value || null, remark: document.getElementById('supplierRemark').value || null }) });
+                    var result = await resp.json();
+                    if (result.success) { alert('添加成功'); window.location.href = 'suppliers.html'; } else { alert(result.message || '添加失败'); }
+                } catch(e) { alert('添加失败: ' + e.message); }
+            });
+        });
+    </script>
+</body>
+</html>
