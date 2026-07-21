@@ -78,7 +78,9 @@ const protectedPages = [
     '/dashboard.html',
     '/import.html',
     '/batch.html',
-    '/stocktaking.html'
+    '/stocktaking.html',
+    '/customers.html',
+    '/customer_list.html'
 ];
 
 protectedPages.forEach(page => {
@@ -105,6 +107,7 @@ app.use('/api/products', productRoutes);
 app.use('/api', inventoryRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/suppliers', supplierRoutes);
+app.use('/api/customers', require('./routes/customerRoutes'));
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/batch', batchRoutes);
