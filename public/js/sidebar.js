@@ -154,6 +154,11 @@ function renderSidebar(activePage) {
     bindRouteEvents();
 }
 
+// 绑定路由事件
+function bindRouteEvents() {
+    // 已通过 onclick 绑定
+}
+
 // 路由跳转
 async function navigateTo(event, page) {
     event.preventDefault();
@@ -234,29 +239,18 @@ function updateSidebarActive(page) {
 
 // 执行页面特定脚本
 function executePageScripts(doc) {
-    // 找到页面特定的脚本并重新执行
-    const scripts = doc.querySelectorAll('script');
+    // 找到新的外部脚本并加载
+    const scripts = doc.querySelectorAll('script[src]');
     scripts.forEach(script => {
-        if (script.src && !script.src.includes('sidebar.js') && !script.src.includes('bootstrap')) {
-            // 外部脚本 - 检查是否已加载
-            const src = script.src.split('/').pop();
-            if (!document.querySelector(`script[src*="${src}"]`)) {
+        const src = script.src.split('/').pop();
+        if (src && !src.includes('sidebar.js') && !src.includes('bootstrap') && !src.includes('config.js')) {
+            if (!document.querySelector('script[src*="' + src + '"]')) {
                 const newScript = document.createElement('script');
                 newScript.src = script.src;
                 document.body.appendChild(newScript);
             }
-        } else if (script.textContent && !script.textContent.includes('DOMContentLoaded')) {
-            // 内联脚本 - 执行
-            try {
-                new Function(script.textContent)();
-            } catch (e) {
-                console.error('执行脚本错误:', e);
-            }
         }
     });
-
-    // 触发 DOMContentLoaded 事件
-    document.dispatchEvent(new Event('DOMContentLoaded'));
 }
 
 // 监听浏览器前进/后退
