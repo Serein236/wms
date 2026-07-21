@@ -15,9 +15,10 @@ body {
     height: 100vh;
     background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
     color: #fff;
-    overflow-y: auto;
     z-index: 1000;
     transition: width 0.3s;
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar-brand {
@@ -26,10 +27,13 @@ body {
     font-weight: bold;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .sidebar-nav {
     padding: 10px 0;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .sidebar-item {
@@ -86,10 +90,8 @@ body {
 .sidebar-footer {
     padding: 15px;
     border-top: 1px solid rgba(255,255,255,0.1);
-    position: absolute;
-    bottom: 0;
-    width: 100%;
     background: #1a1a2e;
+    flex-shrink: 0;
 }
 
 .sidebar-user {

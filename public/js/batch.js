@@ -8,7 +8,7 @@ async function checkLogin() {
         const resp = await fetch('/api/auth/current-user');
         const data = await resp.json();
         if (!data.loggedIn) { window.location.href = 'login.html'; return; }
-        document.getElementById('currentUser').textContent = `欢迎, ${data.username}`;
+        undefined
         document.getElementById('commonDate').value = new Date().toISOString().split('T')[0];
         await loadProducts();
         addItem();

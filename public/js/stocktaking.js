@@ -8,7 +8,7 @@ async function checkLogin() {
         const resp = await fetch('/api/auth/current-user');
         const data = await resp.json();
         if (!data.loggedIn) { window.location.href = 'login.html'; return; }
-        document.getElementById('currentUser').textContent = `欢迎, ${data.username}`;
+        undefined
         createModal = new bootstrap.Modal(document.getElementById('createModal'));
         editItemModal = new bootstrap.Modal(document.getElementById('editItemModal'));
         loadStocktakings();

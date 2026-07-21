@@ -9,7 +9,7 @@ async function checkLogin() {
                 if (!data.loggedIn) {
                     window.location.href = 'login.html';
                 } else {
-                    document.getElementById('currentUser').textContent = `欢迎, ${data.username}`;
+                    undefined
                 }
             } catch (error) { console.error(error); }
         }

@@ -18,7 +18,8 @@ async function checkLogin() {
         if (!data.loggedIn) {
             window.location.href = 'login.html';
         } else {
-            document.getElementById('currentUser').textContent = `欢迎, ${data.username}`;
+            var el = document.getElementById('currentUser');
+            if (el) el.textContent = `欢迎, ${data.username}`;
             supplierModal = new bootstrap.Modal(document.getElementById('supplierModal'));
             loadSuppliers();
         }

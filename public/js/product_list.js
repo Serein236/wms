@@ -23,7 +23,7 @@ async function checkLogin() {
         if (!data.loggedIn) {
             window.location.href = 'login.html';
         } else {
-            document.getElementById('currentUser').textContent = `欢迎, ${data.username}`;
+            undefined
             loadProducts();
             const editEl = document.getElementById('editModal');
             const detailEl = document.getElementById('detailModal');
