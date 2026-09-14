@@ -14,6 +14,77 @@ try {
     console.error('加载数据库配置失败:', e);
 }
 
+// 定位 MySQL 客户端可执行文件（mysqldump / mysql）
+// Windows 本地开发时 MySQL 常被解压到非 PATH 目录，需要自动探测
+function findMySqlBin(name) {
+    const exeName = process.platform === 'win32' ? `${name}.exe` : name;
+
+    // 1. 优先 PATH / 环境变量显式指定
+    const envKey = name === 'mysqldump' ? 'MYSQLDUMP_PATH' : 'MYSQL_PATH';
+    if (process.env[envKey] && fsSync.existsSync(process.env[envKey])) {
+        return process.env[envKey];
+    }
+
+    // 2. 尝试直接调用（PATH 中已有）
+    try {
+        const cmd = process.platform === 'win32' ? 'where' : 'which';
+        const result = require('child_process').execSync(`${cmd} ${name}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+        const found = result.trim().split(/\r?\n/)[0];
+        if (found && fsSync.existsSync(found)) return found;
+    } catch (e) {
+        // ignore
+    }
+
+    // 3. 常见 Windows 安装路径探测（自动扫描盘符下的 mysql-* 目录）
+    if (process.platform === 'win32') {
+        const drives = ['C:', 'D:', 'E:', 'F:', 'G:', 'H:'];
+        const programDirs = [
+            'Program Files\\MySQL',
+            'Program Files (x86)\\MySQL'
+        ];
+
+        for (const drive of drives) {
+            // 3.1 解压版：D:\mysql-x.x.x\bin
+            try {
+                const entries = fsSync.readdirSync(path.join(drive, '\\'));
+                for (const entry of entries) {
+                    const fullDir = path.join(drive, entry);
+                    const stat = fsSync.statSync(fullDir);
+                    if (stat.isDirectory() && /^mysql-\d+\.\d+(\.\d+)?$/i.test(entry)) {
+                        const binDir = path.join(fullDir, 'bin');
+                        const exePath = path.join(binDir, exeName);
+                        if (fsSync.existsSync(exePath)) return exePath;
+                    }
+                }
+            } catch (e) {
+                // ignore access errors
+            }
+
+            // 3.2 安装版：Program Files\MySQL\MySQL Server x.x\bin
+            for (const programDir of programDirs) {
+                const base = path.join(drive, programDir);
+                try {
+                    if (!fsSync.existsSync(base)) continue;
+                    const entries = fsSync.readdirSync(base);
+                    for (const entry of entries) {
+                        const fullDir = path.join(base, entry);
+                        const stat = fsSync.statSync(fullDir);
+                        if (stat.isDirectory() && /^MySQL Server/i.test(entry)) {
+                            const exePath = path.join(fullDir, 'bin', exeName);
+                            if (fsSync.existsSync(exePath)) return exePath;
+                        }
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
+        }
+    }
+
+    // 4. 兜底：返回原始命令名，让 spawn 抛出更清晰的 ENOENT
+    return name;
+}
+
 // 获取北京时间（UTC+8）的格式化时间字符串
 function getBeijingTimestamp() {
     const now = new Date();
@@ -68,8 +139,9 @@ const BackupService = {
 
         try {
             const { spawn } = require('child_process');
+            const mysqldumpPath = findMySqlBin('mysqldump');
             await new Promise((resolve, reject) => {
-                const child = spawn('mysqldump', mysqldumpArgs);
+                const child = spawn(mysqldumpPath, mysqldumpArgs, { shell: false });
                 const writeStream = fsSync.createWriteStream(filePath);
                 child.stdout.pipe(writeStream);
                 child.stderr.on('data', (data) => {});
@@ -275,8 +347,9 @@ const BackupService = {
             mysqlArgs.push(`-p${dbPassword}`);
         }
         const { spawn } = require('child_process');
+        const mysqlPath = findMySqlBin('mysql');
         await new Promise((resolve, reject) => {
-            const child = spawn('mysql', mysqlArgs);
+            const child = spawn(mysqlPath, mysqlArgs, { shell: false });
             const readStream = fsSync.createReadStream(backup.file_path);
             readStream.pipe(child.stdin);
             child.stdin.on('end', () => {});

@@ -1,15 +1,43 @@
-FROM node:18-alpine
+# ---------- Build stage: frontend (Vue 3 + Vite 8) ----------
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
 # Copy package files first for better layer caching
 COPY package.json package-lock.json ./
 
-# Install production dependencies
+# Install all dependencies (including devDependencies for Vite build)
+RUN npm ci
+
+# Copy application code and build frontend to dist/
+COPY . .
+RUN npm run build
+
+# ---------- Runtime stage: backend (Express) ----------
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Copy package files first for better layer caching
+COPY package.json package-lock.json ./
+
+# Install production dependencies only
 RUN npm ci --only=production
 
-# Copy application code
-COPY . .
+# Copy backend source
+COPY store.js swagger.js ./
+COPY config ./config
+COPY controllers ./controllers
+COPY middleware ./middleware
+COPY models ./models
+COPY routes ./routes
+COPY services ./services
+COPY utils ./utils
+COPY sql ./sql
+COPY scripts ./scripts
+
+# Copy built frontend from build stage
+COPY --from=build /app/dist ./dist
 
 # Create necessary directories
 RUN mkdir -p logs backup

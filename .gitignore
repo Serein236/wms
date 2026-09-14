@@ -174,3 +174,11 @@ backup/
 # 排除备份目录下的SQL文件（但保留sql目录中的SQL文件）
 backup/*.sql
 backup/**/*.sql
+
+# WorkBuddy 本地工作区数据（记忆/日志）
+.workbuddy/
+
+# 临时 cookie 文件（含 session 凭据，严禁提交）
+cookie.txt
+qa_cookies2.txt
+.cookie_tmp.txt

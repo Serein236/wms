@@ -3,10 +3,16 @@ const UserModel = require('../models/UserModel');
 function requireLogin(req, res, next) {
     if (req.session.userId) {
         next();
-    } else if (req.path.startsWith('/api/')) {
+    } else if (
+        // 注意：必须用 originalUrl —— 在 router.use 挂载的中间件里 req.path 是相对路径，
+        // 永远不会以 /api/ 开头，导致 API 请求被 302 到 /login.html（SPA 已无该页面）
+        req.originalUrl.startsWith('/api/') ||
+        req.xhr ||
+        (req.headers.accept || '').includes('application/json')
+    ) {
         res.status(401).json({ success: false, message: '请先登录' });
     } else {
-        res.redirect('/login.html');
+        res.redirect('/login');
     }
 }
 

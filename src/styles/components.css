@@ -1,0 +1,258 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Components — 卡片/表格/按钮/表单精修
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* ── 卡片 ── */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.card-header {
+  background: transparent;
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--space-4) var(--space-5);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.card-body {
+  padding: var(--space-5);
+}
+
+/* ── 统计卡片 ── */
+.stat-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  transition: all 0.2s ease;
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.stat-card .stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  background: var(--brand-50);
+  color: var(--brand-500);
+}
+
+.stat-card .stat-value {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.stat-card .stat-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── 表格 ── */
+.table {
+  margin-bottom: 0;
+  color: var(--text-primary);
+}
+
+.table > :not(caption) > * > * {
+  padding: var(--space-3) var(--space-4);
+  background-color: transparent;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.table > thead > tr > th {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+
+.table > tbody > tr {
+  transition: background-color 0.1s ease;
+}
+
+.table > tbody > tr:hover {
+  background-color: var(--bg-hover);
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: var(--bg-subtle);
+}
+
+/* ── 按钮 ── */
+.btn {
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  padding: var(--space-2) var(--space-4);
+  transition: all 0.15s ease;
+}
+
+.btn-primary {
+  background-color: var(--brand-500);
+  border-color: var(--brand-500);
+}
+
+.btn-primary:hover {
+  background-color: var(--brand-600);
+  border-color: var(--brand-600);
+}
+
+.btn-outline-primary {
+  color: var(--brand-500);
+  border-color: var(--brand-500);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--brand-500);
+  border-color: var(--brand-500);
+}
+
+/* ── 表单 ── */
+.form-control,
+.form-select {
+  border-color: var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--brand-400);
+  box-shadow: 0 0 0 0.2rem rgba(13, 148, 136, 0.15);
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+/* ── 徽章 ── */
+.badge {
+  font-weight: 500;
+  font-size: 11px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+/* ── 空状态 ── */
+.empty-state {
+  text-align: center;
+  padding: var(--space-6) var(--space-5);
+  color: var(--text-muted);
+}
+
+.empty-state i {
+  font-size: 48px;
+  margin-bottom: var(--space-3);
+  color: var(--border-strong);
+}
+
+.empty-state p {
+  font-size: 13px;
+}
+
+/* ── 加载 ── */
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.loading-spinner .spinner-border {
+  color: var(--brand-500);
+}
+
+/* ── 模态框 ── */
+.modal-content {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--space-4) var(--space-5);
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.modal-body {
+  padding: var(--space-5);
+}
+
+.modal-footer {
+  border-top: 1px solid var(--border-default);
+  padding: var(--space-3) var(--space-5);
+}
+
+/* ── Toast ── */
+.toast-container {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 1080;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.toast-item {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-3) var(--space-4);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 280px;
+  animation: fadeInUp 0.25s ease-out;
+}
+
+.toast-item.success { border-left: 3px solid var(--color-success); }
+.toast-item.danger  { border-left: 3px solid var(--color-danger); }
+.toast-item.warning { border-left: 3px solid var(--color-warning); }
+.toast-item.info    { border-left: 3px solid var(--color-info); }
+
+/* ── 页面标题 ── */
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: var(--space-4);
+}

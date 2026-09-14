@@ -62,47 +62,17 @@ app.use(cookieParser());
 // Login status check
 app.use(checkLoggedIn);
 
-// Protected pages BEFORE static file serving
-const protectedPages = [
-    '/index.html',
-    '/products.html',
-    '/product_list.html',
-    '/in.html',
-    '/out.html',
-    '/in_records.html',
-    '/out_records.html',
-    '/stock.html',
-    '/query.html',
-    '/settings.html',
-    '/suppliers.html',
-    '/supplier_add.html',
-    '/dashboard.html',
-    '/import.html',
-    '/batch.html',
-    '/batch_in.html',
-    '/batch_out.html',
-    '/stocktaking.html',
-    '/customers.html',
-    '/customer_list.html'
-];
+// Protected pages — old HTML pages now served by Vue SPA in dist/
+// (kept for backward compatibility during transition)
+// app.use(express.static('public'));
 
-protectedPages.forEach(page => {
-    app.get(page, requireLogin, (req, res) => {
-        res.sendFile(path.join(__dirname, 'public', page));
-    });
-});
+// Vue SPA — serve built dist/ directory
+app.use(express.static(path.join(__dirname, 'dist')));
 
-// Root redirect
+// Root route → SPA index.html
 app.get('/', (req, res) => {
-    if (req.isLoggedIn) {
-        res.redirect('/index.html');
-    } else {
-        res.redirect('/login.html');
-    }
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
-
-// Static files AFTER protected routes
-app.use(express.static('public'));
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -115,6 +85,16 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/batch', batchRoutes);
 app.use('/api/stocktaking', stocktakingRoutes);
+
+// SPA History Fallback — any non-API GET request serves index.html
+// (Vue Router handles all client-side routing)
+app.get(/^\/(?!api|api-docs).*/, (req, res, next) => {
+    // Skip requests for static files (assets, css, js, etc.)
+    if (req.path.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map)$/)) {
+        return next();
+    }
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
 
 // Global error handler
 app.use((err, req, res, next) => {

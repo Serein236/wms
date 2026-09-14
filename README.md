@@ -35,15 +35,17 @@
 |------|------|
 | 后端 | Node.js, Express |
 | 数据库 | MySQL 8.0+ |
-| 前端 | HTML5, Bootstrap 5, JavaScript (ES6+) |
-| 图表 | Chart.js |
-| 导出 | ExcelJS |
+| 前端 | Vue 3（Composition API）, Vue Router, Pinia |
+| 构建 | Vite 8 |
+| UI | Bootstrap 5（npm 引入 + CSS 变量定制主题） |
+| 图表 | Chart.js（按需懒加载） |
+| 导出 | xlsx / ExcelJS |
 | 条码 | QuaggaJS |
 
 ## 快速开始
 
 ### 环境要求
-- Node.js 14+
+- Node.js 20.19+（推荐 22 LTS，Vite 8 构建要求）
 - MySQL 8.0+
 
 ### 安装步骤
@@ -76,15 +78,34 @@ mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS warehouse CHARACTER SET u
 mysql -u root -proot warehouse < sql/store.sql
 ```
 
-5. **启动服务**
+5. **构建前端**
+```bash
+npm run build
+```
+
+6. **启动服务**
 ```bash
 npm start
 ```
 
-6. **访问系统**
+7. **访问系统**
 打开浏览器访问 `http://localhost:3000`，默认账号：
 - 用户名：`admin`
 - 密码：`admin`（首次登录后请修改）
+
+### 开发模式（可选）
+
+前后端同时运行，前端热更新：
+
+```bash
+# 终端 1：启动后端 API（端口 3000）
+npm start
+
+# 终端 2：启动 Vite 开发服务器（端口 5173，/api 自动代理到 3000）
+npm run dev
+```
+
+访问 `http://localhost:5173` 进行开发调试。
 
 ## 项目结构
 
@@ -118,19 +139,17 @@ wms/
 │   ├── UserModel.js        # 用户
 │   ├── SupplierModel.js    # 供应商
 │   └── ...
-├── public/                 # 静态资源
-│   ├── css/                # 样式文件
-│   │   ├── common.css      # 公共样式
-│   │   ├── modern.css      # 现代化样式
-│   │   └── sidebar.css     # 侧边栏样式
-│   ├── js/                 # 前端脚本
-│   │   ├── sidebar.js      # 侧边栏组件
-│   │   ├── pagination.js   # 分页工具
-│   │   ├── in.js           # 入库管理
-│   │   ├── out.js          # 出库管理
-│   │   ├── dashboard.js    # 数据看板
-│   │   └── ...
-│   └── *.html              # 页面模板
+├── public/                 # 旧版多页前端（已废弃，仅参考保留）
+├── src/                    # Vue 3 SPA 源码
+│   ├── api/                # API 请求封装
+│   ├── assets/             # 全局样式（设计令牌 + Bootstrap 主题覆盖）
+│   ├── components/         # 通用组件（common/、layout/）
+│   ├── composables/        # 组合式函数
+│   ├── router/             # 路由定义（全部懒加载）
+│   ├── stores/             # Pinia store（auth、settings）
+│   ├── views/              # 页面组件
+│   ├── App.vue             # 根组件
+│   └── main.js             # 前端入口
 ├── routes/                 # 路由
 │   ├── authRoutes.js
 │   ├── inventoryRoutes.js
@@ -157,39 +176,36 @@ wms/
 │   ├── dataUtils.js        # 日期工具
 │   └── logger.js           # 日志工具
 ├── __tests__/              # 测试文件
-├── store.js                # 入口文件
+├── store.js                # 后端入口文件
+├── vite.config.mjs         # Vite 配置（构建 src/ → dist/）
 ├── package.json
 ├── Dockerfile
 ├── docker-compose.yml
-├── .env.example
 ├── AGENTS.md               # AI 代理指南
 └── LICENSE                 # 木兰许可证
 ```
 
-## 主要页面
+## 主要页面（Vue Router SPA 路由）
 
 | 页面 | 路径 | 功能 |
 |------|------|------|
-| 登录 | `/login.html` | 用户认证 |
-| 首页 | `/index.html` | 系统概览 |
-| 商品管理 | `/product_list.html` | 查看、编辑商品 |
-| 新增商品 | `/products.html` | 新增商品信息 |
-| 新增入库 | `/in.html` | 办理入库，条码扫描 |
-| 入库记录 | `/in_records.html` | 查看入库历史 |
-| 新增出库 | `/out.html` | 办理出库，条码扫描 |
-| 出库记录 | `/out_records.html` | 查看、导出出库单 |
-| 批量入库 | `/batch_in.html` | 批量入库操作 |
-| 批量出库 | `/batch_out.html` | 批量出库操作 |
-| 库存列表 | `/stock.html` | 库存总览 |
-| 库存查询 | `/query.html` | 按条件查询 |
-| 供应商管理 | `/suppliers.html` | 查看、编辑供应商 |
-| 新增供应商 | `/supplier_add.html` | 新增供应商 |
-| 客户管理 | `/customers.html` | 新增客户 |
-| 客户列表 | `/customer_list.html` | 查看、编辑客户 |
-| 数据看板 | `/dashboard.html` | 数据可视化 |
-| 库存盘点 | `/stocktaking.html` | 盘点管理 |
-| 数据导入 | `/import.html` | Excel/CSV 导入 |
-| 系统设置 | `/settings.html` | 导出配置、密码修改、数据备份、用户管理 |
+| 登录 | `/login` | 用户认证 |
+| 首页 | `/home` | 系统概览、快捷入口（`/` 自动重定向） |
+| 商品管理 | `/products` | 查看、编辑商品 |
+| 新增/编辑商品 | `/products/new`、`/products/:id/edit` | 商品表单 |
+| 新增入库 | `/stock/in` | 办理入库 |
+| 新增出库 | `/stock/out` | 办理出库 |
+| 入库记录 | `/stock/in-records` | 查看入库历史 |
+| 出库记录 | `/stock/out-records` | 查看、导出出库单 |
+| 批量管理 | `/batch`（入库/出库双标签） | 批量出入库、Excel 导入 |
+| 库存列表 | `/stock` | 库存总览 |
+| 库存查询 | `/stock/query` | 按条件查询 |
+| 供应商管理 | `/suppliers` | 查看、编辑供应商 |
+| 客户管理 | `/customers` | 查看、编辑客户 |
+| 看板大屏 | `/dashboard` | 数据可视化 |
+| 库存盘点 | `/stocktaking` | 盘点管理 |
+| 数据导入 | `/import` | Excel/CSV 导入 |
+| 系统设置 | `/settings` | 公司信息、密码修改、数据备份、出入库方式 |
 
 ## API 接口
 
