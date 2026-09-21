@@ -5,8 +5,8 @@ const { requireLogin, requireAdmin } = require('../middleware/auth');
 
 router.use(requireLogin);
 
-// 搜索供应商（用于入库表单自动完成）
-router.get('/search', supplierController.list);
+// 搜索供应商（用于入库表单自动完成，仅返回启用项）
+router.get('/search', supplierController.search);
 
 // 管理接口（需要管理员权限）
 router.get('/', requireAdmin, supplierController.list);

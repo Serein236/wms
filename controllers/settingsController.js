@@ -18,11 +18,22 @@ const settingsController = {
         const username = req.session?.username;
         const userId = req.session?.userId;
         try {
-            const settings = req.body;
+            let settings = req.body;
+            // 兼容前端 { settings: JSON.stringify(obj) } 的包裹形式
+            if (settings && typeof settings.settings === 'string') {
+                try {
+                    settings = JSON.parse(settings.settings);
+                } catch (e) {
+                    return res.status(400).json({ success: false, message: '设置数据格式错误' });
+                }
+            } else if (settings && typeof settings.settings === 'object' && settings.settings !== null) {
+                settings = settings.settings;
+            }
             if (!settings || typeof settings !== 'object') {
                 return res.status(400).json({ success: false, message: '无效的设置数据' });
             }
-            const allowedKeys = ['export', 'autoBackup'];
+            // 白名单：导出/自动备份配置 + 公司信息
+            const allowedKeys = ['export', 'autoBackup', 'companyName', 'phone', 'address', 'icp'];
             const sanitized = {};
             for (const key of allowedKeys) {
                 if (settings[key] !== undefined) {
@@ -30,7 +41,7 @@ const settingsController = {
                 }
             }
             await SettingsService.saveSettings(sanitized);
-            logger.settingsUpdated('export', null, settings, username, userId);
+            logger.settingsUpdated('settings', null, sanitized, username, userId);
             res.json({ success: true });
         } catch (error) {
             console.error('保存设置错误:', error);

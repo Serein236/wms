@@ -26,6 +26,17 @@ const SupplierModel = {
         );
     },
 
+    // 管理后台搜索：包含已停用供应商（停用后仍可被管理员检索并重新启用）
+    async searchAll(query) {
+        if (!query || query.length < 1) {
+            return await this.findAll(false);
+        }
+        return await dbUtils.query(
+            'SELECT * FROM suppliers WHERE name LIKE ? ORDER BY name ASC',
+            [`%${query}%`]
+        );
+    },
+
     async create(data) {
         const { name, contact_person, phone, email, address, remark } = data;
         const result = await dbUtils.insert(

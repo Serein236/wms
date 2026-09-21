@@ -12,7 +12,7 @@ const supplierController = {
             let suppliers;
             let total;
             if (query && query.length >= 1) {
-                suppliers = await SupplierModel.search(query);
+                suppliers = await SupplierModel.searchAll(query);
                 total = suppliers.length;
                 suppliers = suppliers.slice(pagination.offset, pagination.offset + pagination.limit);
             } else {
@@ -24,6 +24,18 @@ const supplierController = {
         } catch (error) {
             console.error('获取供应商列表错误:', error);
             res.status(500).json({ success: false, message: '获取供应商列表失败' });
+        }
+    },
+
+    // 入库表单联想：仅返回启用中的供应商
+    async search(req, res) {
+        try {
+            const { query } = req.query;
+            const suppliers = await SupplierModel.search(query || '');
+            res.json({ success: true, data: suppliers });
+        } catch (error) {
+            console.error('搜索供应商错误:', error);
+            res.status(500).json({ success: false, message: '搜索供应商失败' });
         }
     },
 

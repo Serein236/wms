@@ -1,6 +1,7 @@
 const XLSX = require('xlsx');
 const dbUtils = require('../utils/dbUtils');
 const logger = require('../utils/logger');
+const ProductModel = require('../models/ProductModel');
 
 const importController = {
     async importProducts(req, res) {
@@ -34,15 +35,19 @@ const importController = {
                     const existing = await dbUtils.queryOne('SELECT id FROM products WHERE name = ?', [name]);
                     if (existing) { skipped++; continue; }
 
-                    const result = await dbUtils.insert(
-                        'INSERT INTO products (name, spec, unit, retail_price) VALUES (?, ?, ?, ?)',
-                        [name, row.spec || null, row.unit || null, row.retail_price ? parseFloat(row.retail_price) : null]
-                    );
-
-                    await dbUtils.insert(
-                        'INSERT INTO stock_inventory (product_id, current_stock, total_in_quantity, total_out_quantity, warning_quantity, danger_quantity) VALUES (?, 0, 0, 0, ?, ?)',
-                        [result.insertId, row.warning_quantity ? parseInt(row.warning_quantity) : 10, row.danger_quantity ? parseInt(row.danger_quantity) : 5]
-                    );
+                    // 统一走 ProductModel.create：自动生成唯一 product_code（NOT NULL），
+                    // 并初始化 stock_inventory，避免裸 INSERT 缺列导致整行失败
+                    await ProductModel.create({
+                        name,
+                        spec: row.spec ? String(row.spec).trim() : '',
+                        unit: row.unit ? String(row.unit).trim() : '',
+                        packing_spec: row.packing_spec ? String(row.packing_spec).trim() : '',
+                        retail_price: row.retail_price != null && row.retail_price !== '' ? parseFloat(row.retail_price) : null,
+                        barcode: row.barcode ? String(row.barcode).trim() : null,
+                        manufacturer: row.manufacturer ? String(row.manufacturer).trim() : null,
+                        warning_quantity: row.warning_quantity ? parseInt(row.warning_quantity) : 10,
+                        danger_quantity: row.danger_quantity ? parseInt(row.danger_quantity) : 5
+                    });
 
                     imported++;
                 } catch (err) {

@@ -1,5 +1,7 @@
 const dbUtils = require('../utils/dbUtils');
 const logger = require('../utils/logger');
+const InventoryService = require('../services/InventoryService');
+const { formatDateForMySQL } = require('../utils/dataUtils');
 
 const stocktakingController = {
     async list(req, res) {
@@ -78,6 +80,12 @@ const stocktakingController = {
 
     async updateItem(req, res) {
         const { actual_stock, remark } = req.body;
+        if (actual_stock !== null && actual_stock !== undefined) {
+            const n = Number(actual_stock);
+            if (!Number.isInteger(n) || n < 0) {
+                return res.status(400).json({ success: false, message: '实盘数量必须是不小于 0 的整数' });
+            }
+        }
         try {
             const item = await dbUtils.queryOne(
                 'SELECT * FROM stocktaking_items WHERE id = ? AND stocktaking_id = ?',
@@ -120,27 +128,54 @@ const stocktakingController = {
                 [req.params.id]
             );
 
+            const today = formatDateForMySQL(new Date());
+            const adjustBatchNo = `PANDIAN-${req.params.id}`;
             for (const item of differences) {
-                const adjustment = item.actual_stock - item.system_stock;
+                const adjustment = Number(item.actual_stock) - Number(item.system_stock);
                 if (adjustment > 0) {
-                    await dbUtils.insert(
-                        'INSERT INTO in_records (product_id, stock_method_name, batch_number, quantity, recorded_date, created_by) VALUES (?, ?, ?, ?, CURDATE(), ?)',
-                        [item.product_id, '盘点入库', `PANDIAN-${req.params.id}`, adjustment, req.session.userId]
-                    );
-                    await dbUtils.update(
-                        'UPDATE stock_inventory SET current_stock = current_stock + ?, total_in_quantity = total_in_quantity + ? WHERE product_id = ?',
-                        [adjustment, adjustment, item.product_id]
-                    );
+                    // 盘盈：通过入库事务建立 PANDIAN 批次，
+                    // 保证 batch_stock / stock_inventory / in_records 三处一致（库存报表基于 batch_stock）
+                    await InventoryService.inStock({
+                        product_id: item.product_id,
+                        stock_method_name: '盘点入库',
+                        batch_number: adjustBatchNo,
+                        production_date: today,
+                        expiration_date: '9999-12-31',
+                        quantity: adjustment,
+                        unit_price: 0,
+                        total_amount: 0,
+                        source: null,
+                        recorded_date: today,
+                        created_by: req.session.userId
+                    });
                 } else if (adjustment < 0) {
-                    const absAdj = Math.abs(adjustment);
-                    await dbUtils.insert(
-                        'INSERT INTO out_records (product_id, stock_method_name, batch_number, quantity, recorded_date, created_by) VALUES (?, ?, ?, ?, CURDATE(), ?)',
-                        [item.product_id, '盘点出库', `PANDIAN-${req.params.id}`, absAdj, req.session.userId]
+                    // 盘亏：按近效期先出（FIFO）从现有批次逐批扣减，保持批次库存与总库存一致
+                    let remain = Math.abs(adjustment);
+                    const batches = await dbUtils.query(
+                        `SELECT batch_number, batch_current_stock FROM batch_stock
+                         WHERE product_id = ? AND batch_current_stock > 0
+                         ORDER BY expiration_date ASC, batch_number ASC`,
+                        [item.product_id]
                     );
-                    await dbUtils.update(
-                        'UPDATE stock_inventory SET current_stock = current_stock - ?, total_out_quantity = total_out_quantity + ? WHERE product_id = ?',
-                        [absAdj, absAdj, item.product_id]
-                    );
+                    for (const b of batches) {
+                        if (remain <= 0) break;
+                        const q = Math.min(Number(b.batch_current_stock), remain);
+                        await InventoryService.outStock({
+                            product_id: item.product_id,
+                            stock_method_name: '盘点出库',
+                            batch_number: b.batch_number,
+                            quantity: q,
+                            unit_price: 0,
+                            total_amount: 0,
+                            destination: null,
+                            recorded_date: today,
+                            created_by: req.session.userId
+                        });
+                        remain -= q;
+                    }
+                    if (remain > 0) {
+                        throw new Error(`商品「${item.product_name || item.product_id}」可用批次库存不足，无法完成盘亏`);
+                    }
                 }
             }
 

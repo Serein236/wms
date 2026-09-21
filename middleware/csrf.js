@@ -2,6 +2,8 @@ const { doubleCsrf } = require('csrf-csrf');
 
 const csrfProtection = doubleCsrf({
     getSecret: () => process.env.CSRF_SECRET || 'warehouse-csrf-secret-change-in-production',
+    // csrf-csrf 4.x 必需：返回会话唯一标识，用于生成与会话绑定的令牌
+    getSessionIdentifier: (req) => (req.session ? req.session.id : ''),
     cookieName: 'csrf-token',
     size: 64,
     ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],

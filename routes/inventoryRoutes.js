@@ -515,7 +515,7 @@ router.get('/settings', settingsController.getSettings);
  *       500:
  *         description: 设置保存失败
  */
-router.post('/settings', settingsController.saveSettings);
+router.post('/settings', requireAdmin, settingsController.saveSettings);
 
 /**
  * @swagger
@@ -530,7 +530,7 @@ router.post('/settings', settingsController.saveSettings);
  *       500:
  *         description: 备份创建失败
  */
-router.post('/backup', backupController.createBackup);
+router.post('/backup', requireAdmin, backupController.createBackup);
 
 /**
  * @swagger
@@ -545,7 +545,7 @@ router.post('/backup', backupController.createBackup);
  *       500:
  *         description: 查询失败
  */
-router.get('/backups', backupController.getBackupList);
+router.get('/backups', requireAdmin, backupController.getBackupList);
 
 /**
  * @swagger
@@ -566,7 +566,7 @@ router.get('/backups', backupController.getBackupList);
  *       404:
  *         description: 备份不存在
  */
-router.get('/backups/:id/download', backupController.downloadBackup);
+router.get('/backups/:id/download', requireAdmin, backupController.downloadBackup);
 
 /**
  * @swagger
@@ -587,7 +587,7 @@ router.get('/backups/:id/download', backupController.downloadBackup);
  *       404:
  *         description: 备份不存在
  */
-router.delete('/backups/:id', backupController.deleteBackup);
+router.delete('/backups/:id', requireAdmin, backupController.deleteBackup);
 
 /**
  * @swagger
@@ -608,7 +608,7 @@ router.delete('/backups/:id', backupController.deleteBackup);
  *       404:
  *         description: 备份不存在
  */
-router.post('/backups/:id/restore', backupController.restoreBackup);
+router.post('/backups/:id/restore', requireAdmin, backupController.restoreBackup);
 
 /**
  * @swagger
@@ -629,7 +629,7 @@ router.post('/backups/:id/restore', backupController.restoreBackup);
  *       500:
  *         description: 自动备份配置保存失败
  */
-router.post('/auto-backup-config', backupController.saveAutoBackupConfig);
+router.post('/auto-backup-config', requireAdmin, backupController.saveAutoBackupConfig);
 
 /**
  * @swagger
@@ -670,6 +670,6 @@ router.post('/change-password', settingsController.changePassword);
  *       500:
  *         description: 清理失败
  */
-router.post('/cleanup', inventoryController.cleanupData);
+router.post('/cleanup', requireAdmin, inventoryController.cleanupData);
 
 module.exports = router;

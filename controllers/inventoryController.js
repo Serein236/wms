@@ -39,7 +39,12 @@ const inventoryController = {
             const product = await dbUtils.queryOne('SELECT name FROM products WHERE id = ?', [product_id]);
             const productName = product ? product.name : '未知商品';
 
-            // Auto-create supplier if new name
+            // 先执行库存事务；只有入库成功后才自动登记供应商，避免失败时产生垃圾数据
+            await InventoryService.inStock({
+                product_id, stock_method_name, batch_number, production_date: formattedProductionDate, expiration_date: formattedExpirationDate, quantity, unit_price, total_amount, source, remark, recorded_date: formattedDate, created_by
+            });
+
+            // Auto-create supplier if new name（事务成功后）
             if (source && source.trim()) {
                 const existing = await dbUtils.queryOne('SELECT id FROM suppliers WHERE name = ?', [source.trim()]);
                 if (!existing) {
@@ -47,10 +52,6 @@ const inventoryController = {
                 }
             }
 
-            await InventoryService.inStock({
-                product_id, stock_method_name, batch_number, production_date: formattedProductionDate, expiration_date: formattedExpirationDate, quantity, unit_price, total_amount, source, remark, recorded_date: formattedDate, created_by
-            });
-            
             logger.inStock(product_id, productName, batch_number, quantity, unit_price, total_amount, stock_method_name, source, username, req.session.userId);
             res.json({ success: true });
         } catch (error) {
@@ -89,7 +90,12 @@ const inventoryController = {
             const product = await dbUtils.queryOne('SELECT name FROM products WHERE id = ?', [product_id]);
             const productName = product ? product.name : '未知商品';
 
-            // Auto-create customer if new name
+            // 先执行库存事务；库存不足等失败会抛错返回 409，此时不得创建客户
+            await InventoryService.outStock({
+                product_id, stock_method_name, batch_number, quantity, unit_price, total_amount, destination, remark, recorded_date: formattedDate, created_by
+            });
+
+            // Auto-create customer if new name（事务成功后）
             if (destination && destination.trim()) {
                 const existing = await dbUtils.queryOne('SELECT id FROM customers WHERE name = ?', [destination.trim()]);
                 if (!existing) {
@@ -97,19 +103,16 @@ const inventoryController = {
                 }
             }
 
-            await InventoryService.outStock({
-                product_id, stock_method_name, batch_number, quantity, unit_price, total_amount, destination, remark, recorded_date: formattedDate, created_by
-            });
-            
             logger.outStock(product_id, productName, batch_number, quantity, unit_price, total_amount, stock_method_name, destination, username, req.session.userId);
             res.json({ success: true });
         } catch (error) {
             console.error('出库错误:', error);
             logger.error('出库失败', { operator: username, operatorId: req.session.userId, product_id, stock_method_name, batch_number, quantity, error: error.message });
-            const message = error.message === '库存不足' || error.message === '批次库存不足' || error.message === '总库存不足' ? error.message : '出库失败';
-            res.status(500).json({ 
-                success: false, 
-                message 
+            const stockErrors = ['库存不足', '批次库存不足', '总库存不足'];
+            const isStockError = stockErrors.includes(error.message);
+            res.status(isStockError ? 409 : 500).json({
+                success: false,
+                message: error.message || '出库失败'
             });
         }
     },
@@ -227,10 +230,12 @@ const inventoryController = {
         } catch (error) {
             console.error('查询错误:', error);
             logger.error('查询失败', { operator: username, operatorId: userId, productId, month, error: error.message });
-            const message = error.message === '商品不存在' ? '商品不存在' : '查询失败';
-            res.status(500).json({ 
-                success: false, 
-                message 
+            if (error.message === '商品不存在') {
+                return res.status(404).json({ success: false, message: '商品不存在' });
+            }
+            res.status(500).json({
+                success: false,
+                message: '查询失败'
             });
         }
     },

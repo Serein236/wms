@@ -47,6 +47,42 @@ const productController = {
         }
     },
 
+    // GET /api/products/barcode/:barcode — 按条码查询商品（扫码入库/出库）
+    async getProductByBarcode(req, res) {
+        try {
+            const { barcode } = req.params;
+            if (!barcode) {
+                return res.status(400).json({ success: false, message: '条码不能为空' });
+            }
+            const product = await ProductModel.findByBarcode(barcode);
+            if (!product) {
+                return res.status(404).json({ success: false, message: '未找到该条码对应的商品' });
+            }
+            res.json({ success: true, data: product });
+        } catch (error) {
+            console.error('条码查询错误:', error);
+            res.status(500).json({ success: false, message: '条码查询失败' });
+        }
+    },
+
+    // GET /api/products/:id — 获取单个商品详情（编辑回显/详情使用）
+    async getProductById(req, res) {
+        try {
+            const { id } = req.params;
+            if (!id || isNaN(Number(id))) {
+                return res.status(400).json({ success: false, message: '无效的商品ID' });
+            }
+            const product = await ProductModel.findById(id);
+            if (!product) {
+                return res.status(404).json({ success: false, message: '商品不存在' });
+            }
+            res.json({ success: true, data: product });
+        } catch (error) {
+            console.error('获取商品详情错误:', error);
+            res.status(500).json({ success: false, message: '获取商品详情失败' });
+        }
+    },
+
     /**
      * 创建新商品
      * @async
@@ -77,6 +113,16 @@ const productController = {
         const userId = req.session.userId;
         
         try {
+            // 必填校验（name/spec/unit 在数据库中为 NOT NULL）
+            if (!name || !String(name).trim()) {
+                return res.status(400).json({ success: false, message: '商品名称不能为空' });
+            }
+            if (!spec || !String(spec).trim()) {
+                return res.status(400).json({ success: false, message: '商品规格不能为空' });
+            }
+            if (!unit || !String(unit).trim()) {
+                return res.status(400).json({ success: false, message: '商品单位不能为空' });
+            }
             // 检查条形码是否已存在
             if (barcode) {
                 const existingProductByBarcode = await ProductModel.findByBarcode(barcode);
@@ -89,7 +135,8 @@ const productController = {
             }
             
             const product = await ProductModel.create({
-                name, spec, unit, packing_spec, retail_price, barcode, manufacturer, warning_quantity, danger_quantity
+                name: String(name).trim(), spec: String(spec).trim(), unit: String(unit).trim(),
+                packing_spec, retail_price, barcode, manufacturer, warning_quantity, danger_quantity
             });
             
             logger.productCreated(product.id, name, product.product_code || 'N/A', username, userId, { spec, unit, barcode, manufacturer });
@@ -137,6 +184,16 @@ const productController = {
         const userId = req.session.userId;
         
         try {
+            // 必填校验
+            if (!name || !String(name).trim()) {
+                return res.status(400).json({ success: false, message: '商品名称不能为空' });
+            }
+            if (!spec || !String(spec).trim()) {
+                return res.status(400).json({ success: false, message: '商品规格不能为空' });
+            }
+            if (!unit || !String(unit).trim()) {
+                return res.status(400).json({ success: false, message: '商品单位不能为空' });
+            }
             // 检查条形码是否已被其他商品使用
             if (barcode) {
                 const existingProductByBarcode = await ProductModel.findByBarcode(barcode);

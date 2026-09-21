@@ -90,7 +90,8 @@ router.post('/logout', authController.logout);
  *                   type: string
  */
 router.get('/csrf-token', (req, res) => {
-    const token = generateToken(req);
+    // csrf-csrf 的 generateCsrfToken(req, res) 内部会调用 res.cookie()，必须传入 res
+    const token = generateToken(req, res);
     res.json({ csrfToken: token });
 });
 

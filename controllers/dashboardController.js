@@ -3,11 +3,14 @@ const dbUtils = require('../utils/dbUtils');
 const dashboardController = {
     async getKPI(req, res) {
         try {
-            const [productCount, stockSummary, inCount, outCount] = await Promise.all([
+            const [productCount, stockSummary, inCount, outCount, todayIn, todayOut, lowStock] = await Promise.all([
                 dbUtils.queryOne('SELECT COUNT(*) as count FROM products'),
                 dbUtils.queryOne('SELECT COALESCE(SUM(current_stock), 0) as total_stock, COALESCE(SUM(current_stock * retail_price), 0) as total_value FROM stock_inventory s JOIN products p ON s.product_id = p.id'),
                 dbUtils.queryOne('SELECT COUNT(*) as count FROM in_records'),
-                dbUtils.queryOne('SELECT COUNT(*) as count FROM out_records')
+                dbUtils.queryOne('SELECT COUNT(*) as count FROM out_records'),
+                dbUtils.queryOne('SELECT COALESCE(SUM(quantity), 0) as qty FROM in_records WHERE DATE(recorded_date) = CURDATE()'),
+                dbUtils.queryOne('SELECT COALESCE(SUM(quantity), 0) as qty FROM out_records WHERE DATE(recorded_date) = CURDATE()'),
+                dbUtils.queryOne('SELECT COUNT(*) as count FROM stock_inventory WHERE warning_quantity > 0 AND current_stock <= warning_quantity')
             ]);
             res.json({
                 success: true,
@@ -16,7 +19,10 @@ const dashboardController = {
                     totalStock: stockSummary ? stockSummary.total_stock : 0,
                     totalValue: stockSummary ? stockSummary.total_value : 0,
                     totalInRecords: inCount ? inCount.count : 0,
-                    totalOutRecords: outCount ? outCount.count : 0
+                    totalOutRecords: outCount ? outCount.count : 0,
+                    todayIn: todayIn ? Number(todayIn.qty) : 0,
+                    todayOut: todayOut ? Number(todayOut.qty) : 0,
+                    lowStock: lowStock ? lowStock.count : 0
                 }
             });
         } catch (error) {

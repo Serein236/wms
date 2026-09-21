@@ -112,10 +112,20 @@ const authController = {
      * GET /api/auth/current-user
      * Response: { "loggedIn": true, "username": "admin" }
      */
-    getCurrentUser(req, res) {
+    async getCurrentUser(req, res) {
+        let role = 'user';
+        if (req.session.userId) {
+            try {
+                const user = await UserModel.findById(req.session.userId);
+                if (user && user.role) role = user.role;
+            } catch (error) {
+                logger.error('获取当前用户失败', { operator: req.session?.username, operatorId: req.session?.userId, error: error.message });
+            }
+        }
         res.json({
             loggedIn: !!req.session.userId,
-            username: req.session.username
+            username: req.session.username,
+            role
         });
     },
 

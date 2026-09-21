@@ -1,169 +1,121 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
-const { requireLogin } = require('../middleware/auth');
+const { requireLogin, requireAdmin } = require('../middleware/auth');
 
+// 所有商品接口均需登录
 router.use(requireLogin);
 
 /**
  * @swagger
- * tags:
- *   name: 商品管理
- *   description: 商品相关操作
- */
-
-/**
- * @swagger
- * /products:
+ * /api/products:
  *   get:
- *     summary: 获取商品列表
- *     description: 获取所有商品的完整列表
- *     tags: [商品管理]
+ *     summary: 获取所有商品
+ *     tags: [商品]
  *     responses:
  *       200:
- *         description: 商品列表
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Product'
- *       500:
- *         description: 服务器错误
+ *         description: 成功获取商品列表
+ *       401:
+ *         description: 未登录
  */
 router.get('/', productController.getAllProducts);
 
-router.get('/barcode/:barcode', async (req, res) => {
-    const ProductModel = require('../models/ProductModel');
-    try {
-        const product = await ProductModel.findByBarcode(req.params.barcode);
-        if (!product) return res.status(404).json({ success: false, message: '未找到该条码对应的商品' });
-        res.json({ success: true, data: product });
-    } catch (error) {
-        res.status(500).json({ success: false, message: '查询失败' });
-    }
-});
-
 /**
  * @swagger
- * /products:
- *   post:
- *     summary: 创建商品
- *     description: 创建新商品，条形码如果提供则必须唯一
- *     tags: [商品管理]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, spec, unit]
- *             properties:
- *               name:
- *                 type: string
- *                 description: 商品名称
- *               spec:
- *                 type: string
- *                 description: 规格
- *               unit:
- *                 type: string
- *                 description: 单位
- *               packing_spec:
- *                 type: string
- *                 description: 包装规格
- *               retail_price:
- *                 type: number
- *                 description: 零售价
- *               barcode:
- *                 type: string
- *                 description: 条形码（唯一）
- *               manufacturer:
- *                 type: string
- *                 description: 生产厂家
- *               warning_quantity:
- *                 type: integer
- *                 description: 预警数量
- *               danger_quantity:
- *                 type: integer
- *                 description: 危险数量
+ * /api/products/barcode/{barcode}:
+ *   get:
+ *     summary: 根据条码查询商品
+ *     tags: [商品]
+ *     parameters:
+ *       - in: path
+ *         name: barcode
+ *         required: true
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
- *         description: 创建成功
- *       400:
- *         description: 参数错误或条形码已存在
- *       500:
- *         description: 服务器错误
+ *         description: 成功获取商品信息
+ *       404:
+ *         description: 未找到商品
  */
-router.post('/', productController.createProduct);
+router.get('/barcode/:barcode', productController.getProductByBarcode);
 
 /**
  * @swagger
- * /products/{id}:
- *   put:
- *     summary: 更新商品
- *     description: 更新指定商品的信息
- *     tags: [商品管理]
+ * /api/products/{id}:
+ *   get:
+ *     summary: 获取单个商品详情
+ *     tags: [商品]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: integer
- *         description: 商品ID
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               spec:
- *                 type: string
- *               unit:
- *                 type: string
- *               packing_spec:
- *                 type: string
- *               retail_price:
- *                 type: number
- *               barcode:
- *                 type: string
- *               manufacturer:
- *                 type: string
- *               warning_quantity:
- *                 type: integer
- *               danger_quantity:
- *                 type: integer
+ *     responses:
+ *       200:
+ *         description: 成功获取商品详情
+ *       404:
+ *         description: 商品不存在
+ */
+router.get('/:id', productController.getProductById);
+
+/**
+ * @swagger
+ * /api/products:
+ *   post:
+ *     summary: 添加新商品（管理员）
+ *     tags: [商品]
+ *     responses:
+ *       200:
+ *         description: 添加成功
+ *       400:
+ *         description: 必填字段缺失或条码重复
+ *       403:
+ *         description: 需要管理员权限
+ */
+router.post('/', requireAdmin, productController.createProduct);
+
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   put:
+ *     summary: 更新商品信息（管理员）
+ *     tags: [商品]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
  *         description: 更新成功
- *       400:
- *         description: 参数错误或条形码已被使用
- *       500:
- *         description: 服务器错误
+ *       403:
+ *         description: 需要管理员权限
+ *       404:
+ *         description: 商品不存在
  */
-router.put('/:id', productController.updateProduct);
+router.put('/:id', requireAdmin, productController.updateProduct);
 
 /**
  * @swagger
- * /products/{id}:
+ * /api/products/{id}:
  *   delete:
- *     summary: 删除商品
- *     description: 删除指定商品
- *     tags: [商品管理]
+ *     summary: 删除商品（管理员）
+ *     tags: [商品]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: integer
- *         description: 商品ID
  *     responses:
  *       200:
  *         description: 删除成功
- *       500:
- *         description: 服务器错误
+ *       403:
+ *         description: 需要管理员权限
  */
-router.delete('/:id', productController.deleteProduct);
+router.delete('/:id', requireAdmin, productController.deleteProduct);
 
 module.exports = router;
