@@ -182,3 +182,17 @@ backup/**/*.sql
 cookie.txt
 qa_cookies2.txt
 .cookie_tmp.txt
+
+# ===== 项目测试与运行时产物（勿提交）=====
+# 自动化 / 浏览器测试运行目录：服务日志、临时 xlsx、结果 JSON、数据库临时转储
+runtime/
+# 测试结果 JSON（api_results.json / ui_results.json / v2_api_results.json 等）
+*_results.json
+# 根目录的数据库基线 / 临时导出（正式建表与升级脚本只放在 sql/）
+/backup_pre_*.sql
+# 一次性测试报告（测试结论沉淀在在线测试文档，非仓库长期文档）
+/WMS测试报告.md
+# 测试过程中生成的临时表格 / 数据文件
+*.tmp.xlsx
+*.tmp.csv
+.import_*.xlsx
