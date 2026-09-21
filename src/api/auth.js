@@ -36,5 +36,9 @@ export const authApi = {
 
   deleteUser(id) {
     return http.delete(`/api/auth/users/${id}`)
+  },
+
+  toggleUserStatus(id) {
+    return http.post(`/api/auth/users/${id}/toggle`)
   }
 }

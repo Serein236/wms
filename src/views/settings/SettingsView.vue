@@ -95,9 +95,9 @@
             </thead>
             <tbody>
               <tr v-for="b in backups" :key="b.id">
-                <td><i class="bi bi-file-earmark-zip me-1"></i>{{ b.filename || b.name }}</td>
-                <td>{{ formatFileSize(b.size) }}</td>
-                <td>{{ b.created_at || b.date }}</td>
+                <td><i class="bi bi-file-earmark-zip me-1"></i>{{ b.file_name }}</td>
+                <td>{{ formatBackupSize(b.file_size) }}</td>
+                <td>{{ formatDate(b.created_at, true) }}</td>
                 <td>
                   <button class="btn btn-sm btn-outline-primary" @click="downloadBackup(b)">
                     <i class="bi bi-download me-1"></i>下载
@@ -185,6 +185,7 @@ import { useAuthStore } from '@/stores/auth'
 import BaseModal from '@/components/common/BaseModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import { formatDate } from '@/utils/formatters'
 
 const toast = useToast()
 const settingsStore = useSettingsStore()
@@ -243,7 +244,7 @@ async function changePassword() {
   changingPwd.value = true
   try {
     await backupApi.changePassword({
-      oldPassword: pwdForm.value.oldPassword,
+      currentPassword: pwdForm.value.oldPassword,
       newPassword: pwdForm.value.newPassword
     })
     toast.success('密码修改成功')
@@ -284,7 +285,7 @@ async function downloadBackup(b) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = b.filename || b.name || 'backup.sql'
+    a.download = b.file_name || 'backup.sql'
     a.click()
     URL.revokeObjectURL(url)
   } catch (e) {
@@ -363,11 +364,12 @@ async function deleteMethod(m) {
   }
 }
 
-function formatFileSize(bytes) {
-  if (!bytes) return '-'
-  const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i]
+function formatBackupSize(sizeMb) {
+  if (sizeMb === null || sizeMb === undefined || sizeMb === '') return '-'
+  const mb = parseFloat(sizeMb)
+  if (isNaN(mb)) return String(sizeMb)
+  if (mb >= 1) return mb.toFixed(2) + ' MB'
+  return (mb * 1024).toFixed(1) + ' KB'
 }
 
 onMounted(async () => {

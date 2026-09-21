@@ -6,7 +6,7 @@
         <h4><i class="bi bi-list-check me-2"></i>商品管理</h4>
         <p>查看、编辑、删除商品信息</p>
       </div>
-      <router-link to="/products/new" class="btn btn-primary btn-sm">
+      <router-link v-if="isAdmin" to="/products/new" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-circle me-1"></i>新增商品
       </router-link>
     </div>
@@ -66,10 +66,10 @@
                 <button class="btn btn-sm btn-outline-info" @click="viewProduct(p)" title="详情">
                   <i class="bi bi-eye"></i>
                 </button>
-                <router-link :to="`/products/${p.id}/edit`" class="btn btn-sm btn-outline-primary ms-1" title="编辑">
+                <router-link v-if="isAdmin" :to="`/products/${p.id}/edit`" class="btn btn-sm btn-outline-primary ms-1" title="编辑">
                   <i class="bi bi-pencil"></i>
                 </router-link>
-                <button class="btn btn-sm btn-outline-danger ms-1" @click="confirmDelete(p)" title="删除">
+                <button v-if="isAdmin" class="btn btn-sm btn-outline-danger ms-1" @click="confirmDelete(p)" title="删除">
                   <i class="bi bi-trash"></i>
                 </button>
               </td>
@@ -99,6 +99,7 @@
           :page-size="pageSize"
           :total="total"
           @page-change="handlePageChange"
+          @page-size-change="handlePageSizeChange"
         />
       </div>
     </div>
@@ -126,8 +127,9 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { productsApi } from '@/api/products'
+import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { debounce } from '@/utils/formatters'
 import BaseModal from '@/components/common/BaseModal.vue'
@@ -136,6 +138,8 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import PaginationBar from '@/components/common/PaginationBar.vue'
 
 const toast = useToast()
+const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.role === 'admin')
 
 const products = ref([])
 const loading = ref(false)
@@ -187,6 +191,12 @@ async function loadProducts() {
 
 function handlePageChange(p) {
   page.value = p
+  loadProducts()
+}
+
+function handlePageSizeChange(size) {
+  pageSize.value = size
+  page.value = 1
   loadProducts()
 }
 

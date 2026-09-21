@@ -13,7 +13,7 @@
 
     <!-- 快捷入口卡片 -->
     <div class="row g-3 mt-1">
-      <div v-for="card in quickCards" :key="card.label" class="col-6 col-md-3">
+      <div v-for="card in visibleCards" :key="card.label" class="col-6 col-md-3">
         <router-link :to="card.to" class="quick-card">
           <div class="quick-icon" :style="{ background: card.bg, color: card.color }">
             <i class="bi" :class="card.icon"></i>
@@ -61,11 +61,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { config } from '@/utils/config'
 import { dashboardApi } from '@/api/dashboard'
 import { formatDate } from '@/utils/formatters'
+import { useAuthStore } from '@/stores/auth'
 
+const authStore = useAuthStore()
 const today = formatDate(new Date(), true)
 const kpi = ref(null)
 
@@ -74,11 +76,16 @@ const quickCards = [
   { icon: 'bi-arrow-down-circle', label: '入库管理', desc: '办理商品入库', to: '/stock/in', bg: '#dcfce7', color: '#16a34a' },
   { icon: 'bi-arrow-up-circle', label: '出库管理', desc: '办理商品出库', to: '/stock/out', bg: '#fef3c7', color: '#d97706' },
   { icon: 'bi-clipboard-data', label: '库存查看', desc: '查看库存情况', to: '/stock', bg: '#e0e7ff', color: '#4f46e5' },
-  { icon: 'bi-truck', label: '供应商', desc: '管理供应商', to: '/suppliers', bg: '#f3e8ff', color: '#9333ea' },
-  { icon: 'bi-people', label: '客户管理', desc: '管理客户信息', to: '/customers', bg: '#fce7f3', color: '#db2777' },
+  { icon: 'bi-truck', label: '供应商', desc: '管理供应商', to: '/suppliers', bg: '#f3e8ff', color: '#9333ea', adminOnly: true },
+  { icon: 'bi-people', label: '客户管理', desc: '管理客户信息', to: '/customers', bg: '#fce7f3', color: '#db2777', adminOnly: true },
   { icon: 'bi-bar-chart-line', label: '数据看板', desc: '查看数据报表', to: '/dashboard', bg: '#fee2e2', color: '#dc2626' },
-  { icon: 'bi-clipboard-check', label: '库存盘点', desc: '盘点库存', to: '/stocktaking', bg: '#ccfbf1', color: '#0d9488' }
+  { icon: 'bi-clipboard-check', label: '库存盘点', desc: '盘点库存', to: '/stocktaking', bg: '#ccfbf1', color: '#0d9488', adminOnly: true }
 ]
+
+const visibleCards = computed(() => {
+  const isAdmin = authStore.role === 'admin'
+  return quickCards.filter(c => !c.adminOnly || isAdmin)
+})
 
 onMounted(async () => {
   try {

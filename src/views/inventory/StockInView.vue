@@ -58,7 +58,7 @@
 
                 <div class="col-md-4">
                   <label class="form-label">入库数量 <span class="text-danger">*</span></label>
-                  <input v-model.number="form.quantity" type="number" class="form-control" min="1" required placeholder="数量" @input="calcTotal">
+                  <input v-model.number="form.quantity" type="number" class="form-control" min="1" max="99999999" required placeholder="数量" @input="calcTotal">
                 </div>
 
                 <div class="col-md-4">
@@ -78,7 +78,10 @@
 
                 <div class="col-md-6">
                   <label class="form-label">供应商名称</label>
-                  <input v-model="form.source" type="text" class="form-control" placeholder="输入供应商名称">
+                  <input v-model="form.source" type="text" class="form-control" placeholder="输入供应商名称" list="supplierOptions" @input="onSupplierInput">
+                  <datalist id="supplierOptions">
+                    <option v-for="s in supplierSuggestions" :key="s.id" :value="s.name"></option>
+                  </datalist>
                 </div>
 
                 <div class="col-12">
@@ -130,6 +133,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { productsApi } from '@/api/products'
 import { inventoryApi } from '@/api/inventory'
+import { suppliersApi } from '@/api/suppliers'
+import { debounce } from '@/utils/formatters'
 import BarcodeScanner from '@/components/common/BarcodeScanner.vue'
 import { useToast } from '@/composables/useToast'
 
@@ -139,6 +144,19 @@ const products = ref([])
 const stockMethods = ref([])
 const submitting = ref(false)
 const showScanner = ref(false)
+const supplierSuggestions = ref([])
+
+function defaultDates() {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return {
+    recorded_date: `${y}-${m}-${d}`,
+    production_date: `${y}-${m}-${d}`,
+    expiration_date: `${y + 1}-${m}-${d}`
+  }
+}
 
 const form = ref({
   product_id: '',
@@ -153,6 +171,22 @@ const form = ref({
   source: '',
   remark: ''
 })
+
+const searchSuppliers = debounce(async (kw) => {
+  if (!kw || kw.trim().length < 1) {
+    supplierSuggestions.value = []
+    return
+  }
+  try {
+    supplierSuggestions.value = await suppliersApi.searchNormalized(kw.trim())
+  } catch (e) {
+    supplierSuggestions.value = []
+  }
+}, 300)
+
+function onSupplierInput(e) {
+  searchSuppliers(e.target.value)
+}
 
 const selectedProduct = computed(() => {
   return products.value.find(p => p.id == form.value.product_id) || null
@@ -179,25 +213,31 @@ function calcTotal() {
 }
 
 async function handleSubmit() {
+  const qty = Number(form.value.quantity)
+  if (!Number.isInteger(qty) || qty <= 0 || qty > 99999999) {
+    toast.warning('入库数量必须是 1~99999999 的正整数')
+    return
+  }
   submitting.value = true
   try {
     await inventoryApi.createIn(form.value)
     toast.success('入库成功')
-    // 重置表单但保留日期
-    const today = form.value.recorded_date
+    // 重置表单，日期恢复为今天 / 一年后
+    const dates = defaultDates()
     form.value = {
       product_id: '',
       stock_method_name: '',
       batch_number: '',
-      production_date: '',
-      expiration_date: '',
+      production_date: dates.production_date,
+      expiration_date: dates.expiration_date,
       quantity: null,
       unit_price: null,
       total_amount: 0,
-      recorded_date: today,
+      recorded_date: dates.recorded_date,
       source: '',
       remark: ''
     }
+    supplierSuggestions.value = []
   } catch (e) {
     toast.error('入库失败: ' + e.message)
   } finally {
@@ -230,7 +270,7 @@ onMounted(async () => {
     stockMethods.value = methods
   } catch (e) {
     // 降级为默认值
-    stockMethods.value = ['采购入库', '退货入库', '调拨入库', '生产入库', '其他入库']
+    stockMethods.value = ['采购入库', '退货入库', '调拨入库', '生产入库', '其他入库', '盘点入库']
   }
 })
 </script>

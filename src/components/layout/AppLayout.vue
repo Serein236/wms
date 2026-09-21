@@ -7,7 +7,7 @@
         <span>{{ config.companyName }}</span>
       </div>
       <nav class="sidebar-nav">
-        <template v-for="item in menuItems" :key="item.label">
+        <template v-for="item in visibleMenuItems" :key="item.label">
           <!-- 无子菜单 -->
           <router-link
             v-if="!item.children"
@@ -110,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { config } from '@/utils/config'
 import { useAuthStore } from '@/stores/auth'
@@ -121,13 +121,13 @@ const sidebarOpen = ref(false)
 
 const auth = useAuthStore()
 
-// 菜单定义
+// 菜单定义（adminOnly 仅管理员可见）
 const menuItems = [
   { icon: 'bi-house-door', label: '首页', to: '/home' },
   {
     icon: 'bi-box-seam', label: '商品管理', to: '/products',
     children: [
-      { icon: 'bi-plus-circle', label: '新增商品', to: '/products/new' },
+      { icon: 'bi-plus-circle', label: '新增商品', to: '/products/new', adminOnly: true },
       { icon: 'bi-list-check', label: '商品列表', to: '/products' }
     ]
   },
@@ -161,26 +161,49 @@ const menuItems = [
     icon: 'bi-clipboard-data', label: '库存管理', to: '/stock',
     children: [
       { icon: 'bi-table', label: '库存列表', to: '/stock' },
-      { icon: 'bi-search', label: '库存查询', to: '/stock/query' }
+      { icon: 'bi-search', label: '库存查询', to: '/stock/query' },
+      { icon: 'bi-clipboard-check', label: '库存盘点', to: '/stocktaking', adminOnly: true }
     ]
   },
   {
-    icon: 'bi-truck', label: '供应商管理', to: '/suppliers',
+    icon: 'bi-truck', label: '供应商管理', to: '/suppliers', adminOnly: true,
     children: [
-      { icon: 'bi-plus-circle', label: '新增供应商', to: '/suppliers/new' },
-      { icon: 'bi-list-check', label: '供应商列表', to: '/suppliers' }
+      { icon: 'bi-plus-circle', label: '新增供应商', to: '/suppliers/new', adminOnly: true },
+      { icon: 'bi-list-check', label: '供应商列表', to: '/suppliers', adminOnly: true }
     ]
   },
   {
-    icon: 'bi-people', label: '客户管理', to: '/customers',
+    icon: 'bi-people', label: '客户管理', to: '/customers', adminOnly: true,
     children: [
-      { icon: 'bi-plus-circle', label: '新增客户', to: '/customers' },
-      { icon: 'bi-list-check', label: '客户列表', to: '/customers' }
+      { icon: 'bi-plus-circle', label: '新增客户', to: '/customers', adminOnly: true },
+      { icon: 'bi-list-check', label: '客户列表', to: '/customers', adminOnly: true }
     ]
   },
   { icon: 'bi-bar-chart-line', label: '看板大屏', to: '/dashboard' },
-  { icon: 'bi-gear', label: '设置', to: '/settings' }
+  {
+    icon: 'bi-gear-wide-connected', label: '系统管理', to: '/settings', adminOnly: true,
+    children: [
+      { icon: 'bi-upload', label: '数据导入', to: '/import', adminOnly: true },
+      { icon: 'bi-people', label: '用户管理', to: '/users', adminOnly: true },
+      { icon: 'bi-gear', label: '系统设置', to: '/settings', adminOnly: true }
+    ]
+  }
 ]
+
+// 按角色过滤菜单
+const visibleMenuItems = computed(() => {
+  const isAdmin = auth.role === 'admin'
+  const filterNode = (node) => {
+    if (node.adminOnly && !isAdmin) return null
+    if (node.children) {
+      const children = node.children.map(filterNode).filter(Boolean)
+      if (!children.length) return null
+      return { ...node, children }
+    }
+    return node
+  }
+  return menuItems.map(filterNode).filter(Boolean)
+})
 
 // 展开状态
 const expandedMenus = reactive({})

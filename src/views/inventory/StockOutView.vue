@@ -45,14 +45,14 @@
                   <select v-model="form.batch_number" class="form-select">
                     <option value="">请选择批次</option>
                     <option v-for="b in batches" :key="b.batch_number" :value="b.batch_number">
-                      {{ b.batch_number }} (余: {{ b.quantity }})
+                      {{ b.batch_number }} (余: {{ b.current_stock }})
                     </option>
                   </select>
                 </div>
 
                 <div class="col-md-4">
                   <label class="form-label">出库数量 <span class="text-danger">*</span></label>
-                  <input v-model.number="form.quantity" type="number" class="form-control" min="1" required placeholder="数量" @input="calcTotal">
+                  <input v-model.number="form.quantity" type="number" class="form-control" min="1" max="99999999" required placeholder="数量" @input="calcTotal">
                 </div>
 
                 <div class="col-md-4">
@@ -72,7 +72,10 @@
 
                 <div class="col-md-6">
                   <label class="form-label">客户名称</label>
-                  <input v-model="form.source" type="text" class="form-control" placeholder="输入客户名称">
+                  <input v-model="form.destination" type="text" class="form-control" placeholder="输入客户名称" list="customerOptions" @input="onCustomerInput">
+                  <datalist id="customerOptions">
+                    <option v-for="c in customerSuggestions" :key="c.id" :value="c.name"></option>
+                  </datalist>
                 </div>
 
                 <div class="col-12">
@@ -121,6 +124,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { productsApi } from '@/api/products'
 import { inventoryApi } from '@/api/inventory'
+import { customersApi } from '@/api/customers'
+import { debounce } from '@/utils/formatters'
 import BarcodeScanner from '@/components/common/BarcodeScanner.vue'
 import { useToast } from '@/composables/useToast'
 
@@ -131,6 +136,7 @@ const stockMethods = ref([])
 const batches = ref([])
 const submitting = ref(false)
 const showScanner = ref(false)
+const customerSuggestions = ref([])
 
 const form = ref({
   product_id: '',
@@ -140,9 +146,25 @@ const form = ref({
   unit_price: null,
   total_amount: 0,
   recorded_date: '',
-  source: '',
+  destination: '',
   remark: ''
 })
+
+const searchCustomers = debounce(async (kw) => {
+  if (!kw || kw.trim().length < 1) {
+    customerSuggestions.value = []
+    return
+  }
+  try {
+    customerSuggestions.value = await customersApi.searchNormalized(kw.trim())
+  } catch (e) {
+    customerSuggestions.value = []
+  }
+}, 300)
+
+function onCustomerInput(e) {
+  searchCustomers(e.target.value)
+}
 
 const selectedProduct = computed(() => {
   return products.value.find(p => p.id == form.value.product_id) || null
@@ -179,6 +201,17 @@ function calcTotal() {
 }
 
 async function handleSubmit() {
+  const qty = Number(form.value.quantity)
+  if (!Number.isInteger(qty) || qty <= 0 || qty > 99999999) {
+    toast.warning('出库数量必须是 1~99999999 的正整数')
+    return
+  }
+  const batch = batches.value.find(b => b.batch_number === form.value.batch_number)
+  if (batch && qty > Number(batch.current_stock)) {
+    toast.warning(`出库数量不能超过该批次余量（${batch.current_stock}）`)
+    return
+  }
+
   submitting.value = true
   try {
     await inventoryApi.createOut(form.value)
@@ -192,9 +225,10 @@ async function handleSubmit() {
       unit_price: null,
       total_amount: 0,
       recorded_date: today,
-      source: '',
+      destination: '',
       remark: ''
     }
+    customerSuggestions.value = []
     batches.value = []
   } catch (e) {
     toast.error('出库失败: ' + e.message)
@@ -221,7 +255,7 @@ onMounted(async () => {
     const res = await inventoryApi.getStockMethods({ type: 'out' })
     stockMethods.value = Array.isArray(res) ? res : (res?.data || [])
   } catch (e) {
-    stockMethods.value = ['销售出库', '退货出库', '调拨出库', '报废出库', '其他出库']
+    stockMethods.value = ['销售出库', '调拨出库', '报损出库', '样品出库', '其他出库', '盘点出库']
   }
 })
 </script>

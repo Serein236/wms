@@ -42,12 +42,15 @@
             </div>
 
             <div v-if="importResult" class="mt-3">
-              <div class="alert" :class="importResult.success ? 'alert-success' : 'alert-danger'">
-                <i class="bi me-1" :class="importResult.success ? 'bi-check-circle' : 'bi-x-circle'"></i>
+              <div class="alert" :class="resultAlertClass">
+                <i class="bi me-1" :class="resultIcon"></i>
                 {{ importResult.message }}
-                <div v-if="importResult.details" class="mt-1 small">
-                  成功: {{ importResult.details.success }} 条，失败: {{ importResult.details.failed }} 条
+                <div class="mt-1 small">
+                  共 {{ importResult.total }} 条，成功 {{ importResult.imported }} 条，跳过/失败 {{ importResult.skipped }} 条
                 </div>
+                <ul v-if="importResult.errors && importResult.errors.length" class="mb-0 mt-1 small ps-3">
+                  <li v-for="(err, i) in importResult.errors" :key="i">{{ err }}</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -82,7 +85,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { importApi } from '@/api/import'
 import { useToast } from '@/composables/useToast'
 
@@ -132,22 +135,51 @@ async function startImport() {
     formData.append('file', selectedFile.value)
 
     const res = await importApi.importProducts(formData)
-    importResult.value = {
-      success: true,
-      message: '导入成功',
-      details: { success: res?.count || res?.success_count || 0, failed: res?.failed || 0 }
+    const imported = Number(res?.imported ?? 0)
+    const skipped = Number(res?.skipped ?? 0)
+    const total = Number(res?.total ?? imported + skipped)
+    const errors = Array.isArray(res?.errors) ? res.errors : []
+
+    let status = 'success'
+    let message = `导入完成，成功 ${imported} 条`
+    if (imported > 0 && skipped > 0) {
+      status = 'warning'
+      message = `部分导入成功：成功 ${imported} 条，跳过/失败 ${skipped} 条`
+    } else if (imported === 0) {
+      status = 'danger'
+      message = '导入失败，没有成功导入任何商品'
     }
-    toast.success('导入成功')
+
+    importResult.value = { status, message, imported, skipped, total, errors }
+
+    if (status === 'success') toast.success(message)
+    else if (status === 'warning') toast.warning(message)
+    else toast.error(message)
   } catch (e) {
     importResult.value = {
-      success: false,
-      message: '导入失败: ' + e.message
+      status: 'danger',
+      message: '导入失败: ' + e.message,
+      imported: 0, skipped: 0, total: 0, errors: []
     }
-    toast.error('导入失败')
+    toast.error('导入失败: ' + e.message)
   } finally {
     importing.value = false
   }
 }
+
+const resultAlertClass = computed(() => {
+  const status = importResult.value?.status
+  if (status === 'success') return 'alert-success'
+  if (status === 'warning') return 'alert-warning'
+  return 'alert-danger'
+})
+
+const resultIcon = computed(() => {
+  const status = importResult.value?.status
+  if (status === 'success') return 'bi-check-circle'
+  if (status === 'warning') return 'bi-exclamation-triangle'
+  return 'bi-x-circle'
+})
 
 async function downloadTemplate() {
   try {

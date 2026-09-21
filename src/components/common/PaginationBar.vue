@@ -1,5 +1,5 @@
 <template>
-  <nav v-if="total > 0" class="pagination-bar">
+  <nav v-if="total > 0" class="pagination-bar d-flex align-items-center gap-2 flex-wrap">
     <ul class="pagination pagination-sm mb-0">
       <li class="page-item" :class="{ disabled: page <= 1 }">
         <a class="page-link" href="javascript:void(0)" @click="page > 1 && $emit('page-change', page - 1)">
@@ -25,6 +25,15 @@
     <span class="pagination-info">
       共 {{ total }} 条，第 {{ page }}/{{ totalPages }} 页
     </span>
+    <select
+      v-if="showPageSize"
+      class="form-select form-select-sm page-size-select"
+      :value="pageSize"
+      @change="onPageSizeChange"
+      title="每页条数"
+    >
+      <option v-for="s in pageSizes" :key="s" :value="s">{{ s }} 条/页</option>
+    </select>
   </nav>
 </template>
 
@@ -34,12 +43,18 @@ import { computed } from 'vue'
 const props = defineProps({
   page: { type: Number, default: 1 },
   pageSize: { type: Number, default: 20 },
-  total: { type: Number, default: 0 }
+  total: { type: Number, default: 0 },
+  showPageSize: { type: Boolean, default: true },
+  pageSizes: { type: Array, default: () => [10, 20, 50, 100] }
 })
 
-defineEmits(['page-change'])
+const emit = defineEmits(['page-change', 'page-size-change'])
 
 const totalPages = computed(() => Math.ceil(props.total / props.pageSize) || 1)
+
+function onPageSizeChange(e) {
+  emit('page-size-change', Number(e.target.value))
+}
 
 const visiblePages = computed(() => {
   const pages = []
@@ -61,3 +76,14 @@ const visiblePages = computed(() => {
   return pages
 })
 </script>
+
+<style scoped>
+.page-size-select {
+  width: auto;
+  min-width: 84px;
+}
+.pagination-info {
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+}
+</style>

@@ -23,16 +23,16 @@
               <input v-model="form.name" type="text" class="form-control" required placeholder="商品名称">
             </div>
             <div class="col-md-3">
-              <label class="form-label">规格</label>
-              <input v-model="form.spec" type="text" class="form-control" placeholder="规格">
+              <label class="form-label">规格 <span class="text-danger">*</span></label>
+              <input v-model="form.spec" type="text" class="form-control" required maxlength="20" placeholder="规格">
             </div>
             <div class="col-md-3">
               <label class="form-label">装箱规格</label>
               <input v-model="form.packing_spec" type="text" class="form-control" placeholder="装箱规格">
             </div>
             <div class="col-md-2">
-              <label class="form-label">单位</label>
-              <input v-model="form.unit" type="text" class="form-control" placeholder="个/箱">
+              <label class="form-label">单位 <span class="text-danger">*</span></label>
+              <input v-model="form.unit" type="text" class="form-control" required maxlength="20" placeholder="个/箱">
             </div>
             <div class="col-md-2">
               <label class="form-label">零售价</label>
@@ -40,7 +40,7 @@
             </div>
             <div class="col-md-3">
               <label class="form-label">条形码</label>
-              <input v-model="form.barcode" type="text" class="form-control" placeholder="条形码">
+              <input v-model="form.barcode" type="text" class="form-control" maxlength="15" placeholder="条形码">
             </div>
             <div class="col-md-4">
               <label class="form-label">生产厂家</label>
@@ -108,14 +108,31 @@ async function loadProduct() {
 }
 
 async function handleSubmit() {
-  if (!form.value.name) return
+  if (!String(form.value.name || '').trim()) {
+    toast.warning('请填写商品名称')
+    return
+  }
+  if (!String(form.value.spec || '').trim()) {
+    toast.warning('请填写规格')
+    return
+  }
+  if (!String(form.value.unit || '').trim()) {
+    toast.warning('请填写单位')
+    return
+  }
+  const payload = {
+    ...form.value,
+    name: String(form.value.name).trim(),
+    spec: String(form.value.spec).trim(),
+    unit: String(form.value.unit).trim()
+  }
   submitting.value = true
   try {
     if (isEdit.value) {
-      await productsApi.update(route.params.id, form.value)
+      await productsApi.update(route.params.id, payload)
       toast.success('修改成功')
     } else {
-      await productsApi.create(form.value)
+      await productsApi.create(payload)
       toast.success('添加成功')
     }
     router.push('/products')

@@ -40,8 +40,8 @@
               <th>规格</th>
               <th width="60">单位</th>
               <th>批号</th>
-              <th width="80">总入库</th>
-              <th width="80">总出库</th>
+              <th width="90">本批入库</th>
+              <th width="90">本批出库</th>
               <th width="80">当前库存</th>
               <th width="90">入库价</th>
               <th width="100">库存价值</th>
@@ -49,19 +49,19 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in filteredStock" :key="item.id">
-              <td class="text-muted">{{ item.id }}</td>
-              <td class="fw-semibold">{{ item.name }}</td>
-              <td>{{ item.spec || '-' }}</td>
-              <td>{{ item.unit || '-' }}</td>
+            <tr v-for="item in filteredStock" :key="item.product_id + '-' + item.batch_number">
+              <td class="text-muted">{{ item.product_id }}</td>
+              <td class="fw-semibold">{{ item.product_name }}</td>
+              <td>{{ item.product_spec || '-' }}</td>
+              <td>{{ item.product_unit || '-' }}</td>
               <td>{{ item.batch_number || '-' }}</td>
-              <td class="text-success">{{ item.total_in ?? 0 }}</td>
-              <td class="text-warning">{{ item.total_out ?? 0 }}</td>
+              <td class="text-success">{{ item.batch_in_quantity ?? 0 }}</td>
+              <td class="text-warning">{{ item.batch_out_quantity ?? 0 }}</td>
               <td>
-                <span class="badge" :class="stockBadgeClass(item)">{{ item.stock ?? 0 }}</span>
+                <span class="badge" :class="stockBadgeClass(item)">{{ item.current_stock ?? 0 }}</span>
               </td>
-              <td>¥{{ formatMoney(item.avg_in_price || item.unit_price) }}</td>
-              <td>¥{{ formatMoney((item.stock || 0) * (item.avg_in_price || item.unit_price || 0)) }}</td>
+              <td>¥{{ formatMoney(item.in_price) }}</td>
+              <td>¥{{ formatMoney((item.current_stock || 0) * (item.in_price || 0)) }}</td>
               <td>
                 <span class="badge" :class="statusBadgeClass(item)">{{ statusLabel(item) }}</span>
               </td>
@@ -78,7 +78,14 @@
       <EmptyState v-if="!loading && !filteredStock.length" icon="bi-inbox" title="暂无库存数据" />
 
       <div class="card-footer" v-if="total > pageSize">
-        <PaginationBar :page="page" :page-size="pageSize" :total="total" @page-change="handlePageChange" />
+        <PaginationBar
+          :page="page"
+          :page-size="pageSize"
+          :total="total"
+          :page-sizes="[50, 100, 500, 1000]"
+          @page-change="handlePageChange"
+          @page-size-change="handlePageSizeChange"
+        />
       </div>
     </div>
   </div>
@@ -107,7 +114,7 @@ const filteredStock = computed(() => {
 
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
-    result = result.filter(s => (s.name || '').toLowerCase().includes(q))
+    result = result.filter(s => (s.product_name || '').toLowerCase().includes(q))
   }
 
   if (statusFilter.value) {
@@ -118,7 +125,9 @@ const filteredStock = computed(() => {
 })
 
 function getStockStatus(item) {
-  const stock = item.stock || 0
+  // 批次过期优先判定
+  if (item.batch_status === 'expired') return 'danger'
+  const stock = item.current_stock || 0
   const warning = item.warning_quantity ?? 10
   const danger = item.danger_quantity ?? 5
   if (stock <= 0) return 'out_of_stock'
@@ -153,15 +162,17 @@ function statusLabel(item) {
 async function loadStock() {
   loading.value = true
   try {
-    const res = await inventoryApi.getStock({ pageSize: pageSize.value })
+    const res = await inventoryApi.getStock({ page: page.value, pageSize: pageSize.value })
     if (Array.isArray(res)) {
       stockList.value = res
+      total.value = res.length
     } else if (res?.data) {
       stockList.value = res.data
+      total.value = res.pagination?.total ?? res.data.length
     } else {
       stockList.value = res || []
+      total.value = stockList.value.length
     }
-    total.value = stockList.value.length
   } catch (e) {
     toast.error('加载库存失败: ' + e.message)
   } finally {
@@ -171,6 +182,12 @@ async function loadStock() {
 
 function handlePageChange(p) {
   page.value = p
+  loadStock()
+}
+
+function handlePageSizeChange(size) {
+  pageSize.value = size
+  page.value = 1
   loadStock()
 }
 

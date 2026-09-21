@@ -71,7 +71,7 @@
       <EmptyState v-if="!loading && !items.length" icon="bi-truck" title="暂无供应商" desc="点击右上角「新增供应商」添加" />
 
       <div class="card-footer" v-if="total > 0">
-        <PaginationBar :page="page" :page-size="pageSize" :total="total" @page-change="handlePageChange" />
+        <PaginationBar :page="page" :page-size="pageSize" :total="total" @page-change="handlePageChange" @page-size-change="handlePageSizeChange" />
       </div>
     </div>
 
@@ -193,6 +193,12 @@ function handlePageChange(p) {
   loadData()
 }
 
+function handlePageSizeChange(size) {
+  pageSize.value = size
+  page.value = 1
+  loadData()
+}
+
 function openCreate() {
   editing.value = null
   form.value = { name: '', contact_person: '', phone: '', email: '', address: '', is_active: true }
@@ -201,7 +207,7 @@ function openCreate() {
 
 function openEdit(item) {
   editing.value = item
-  form.value = { ...item }
+  form.value = { ...item, is_active: !!item.is_active }
   showForm.value = true
 }
 
@@ -210,13 +216,15 @@ async function handleSave() {
     toast.warning('请填写供应商名称')
     return
   }
+  // 统一为 1/0，避免布尔/字符串写入 tinyint 异常
+  const payload = { ...form.value, is_active: form.value.is_active ? 1 : 0 }
   saving.value = true
   try {
     if (editing.value) {
-      await suppliersApi.update(editing.value.id, form.value)
+      await suppliersApi.update(editing.value.id, payload)
       toast.success('修改成功')
     } else {
-      await suppliersApi.create(form.value)
+      await suppliersApi.create(payload)
       toast.success('添加成功')
     }
     showForm.value = false

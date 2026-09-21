@@ -50,8 +50,8 @@ export const inventoryApi = {
   },
 
   // ── 出入库方式 ──
-  getStockMethods() {
-    return http.get('/api/stock-methods')
+  getStockMethods(params) {
+    return http.get('/api/stock-methods', params)
   },
 
   getStockMethodsAdmin() {
@@ -118,10 +118,10 @@ export const inventoryApi = {
   },
 
   /**
-   * 获取出入库方式 — 兼容裸数组
+   * 获取出入库方式 — 兼容裸数组；可传 { type: 'in' | 'out' }
    */
-  async getStockMethodsNormalized() {
-    const res = await this.getStockMethods()
+  async getStockMethodsNormalized(params) {
+    const res = await this.getStockMethods(params)
     return extractData(res)
   }
 }

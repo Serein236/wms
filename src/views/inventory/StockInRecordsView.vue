@@ -83,7 +83,7 @@
       <EmptyState v-if="!loading && !records.length" icon="bi-clipboard-minus" title="暂无入库记录" />
 
       <div class="card-footer" v-if="total > 0">
-        <PaginationBar :page="page" :page-size="pageSize" :total="total" @page-change="handlePageChange" />
+        <PaginationBar :page="page" :page-size="pageSize" :total="total" @page-change="handlePageChange" @page-size-change="handlePageSizeChange" />
       </div>
     </div>
 
@@ -189,6 +189,12 @@ async function loadRecords() {
 
 function handlePageChange(p) {
   page.value = p
+  loadRecords()
+}
+
+function handlePageSizeChange(size) {
+  pageSize.value = size
+  page.value = 1
   loadRecords()
 }
 

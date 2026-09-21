@@ -6,7 +6,7 @@ export const suppliersApi = {
   },
 
   search(keyword) {
-    return http.get('/api/suppliers/search', { keyword })
+    return http.get('/api/suppliers/search', { query: keyword })
   },
 
   getById(id) {

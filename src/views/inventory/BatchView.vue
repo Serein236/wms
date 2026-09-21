@@ -42,10 +42,10 @@
               <tr>
                 <th width="40">#</th>
                 <th>商品名称 <span class="text-danger">*</span></th>
-                <th width="100">批号</th>
+                <th width="120">批号 <span class="text-danger">*</span></th>
                 <th width="120" v-if="mode === 'in'">生产日期</th>
                 <th width="120" v-if="mode === 'in'">过期日期</th>
-                <th width="80">数量 <span class="text-danger">*</span></th>
+                <th width="90">数量 <span class="text-danger">*</span></th>
                 <th width="90">单价</th>
                 <th width="100">{{ mode === 'in' ? '供应商' : '客户' }}</th>
                 <th width="60">操作</th>
@@ -55,7 +55,7 @@
               <tr v-for="(row, idx) in rows" :key="idx">
                 <td class="text-center text-muted">{{ idx + 1 }}</td>
                 <td>
-                  <input v-model="row.name" type="text" class="form-control form-control-sm" placeholder="商品名称">
+                  <input v-model="row.name" type="text" class="form-control form-control-sm" placeholder="商品名称" list="batchProductOptions">
                 </td>
                 <td>
                   <input v-model="row.batch_number" type="text" class="form-control form-control-sm" placeholder="批号">
@@ -67,7 +67,7 @@
                   <input v-model="row.expiration_date" type="date" class="form-control form-control-sm">
                 </td>
                 <td>
-                  <input v-model.number="row.quantity" type="number" class="form-control form-control-sm" min="1">
+                  <input v-model.number="row.quantity" type="number" class="form-control form-control-sm" min="1" max="99999999">
                 </td>
                 <td>
                   <input v-model.number="row.unit_price" type="number" class="form-control form-control-sm" step="0.01">
@@ -84,6 +84,10 @@
             </tbody>
           </table>
         </div>
+
+        <datalist id="batchProductOptions">
+          <option v-for="p in products" :key="p.id" :value="p.name"></option>
+        </datalist>
 
         <div class="d-flex justify-content-between align-items-center mt-3">
           <span class="text-muted small">共 {{ rows.length }} 条记录</span>
@@ -103,6 +107,7 @@ import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { inventoryApi } from '@/api/inventory'
 import { batchApi } from '@/api/batch'
+import { productsApi } from '@/api/products'
 import { useToast } from '@/composables/useToast'
 
 const route = useRoute()
@@ -112,6 +117,23 @@ const toast = useToast()
 const mode = ref(route.params.mode === 'out' ? 'out' : 'in')
 const rows = ref([])
 const submitting = ref(false)
+const products = ref([])
+
+async function loadProducts() {
+  try {
+    const res = await productsApi.list({ page: 1, pageSize: 1000 })
+    products.value = Array.isArray(res) ? res : (res?.data || [])
+  } catch (e) {
+    // 联想失败不阻塞手工输入（后端仍会按名称兜底解析）
+  }
+}
+
+function isoDate(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 function createEmptyRow() {
   const today = new Date()
@@ -190,28 +212,72 @@ function handleFileUpload(e) {
 }
 
 async function submitBatch() {
-  const valid = rows.value.filter(r => r.name && r.quantity)
-  if (!valid.length) {
-    toast.warning('请至少填写一条有效记录（商品名称和数量必填）')
+  // 仅保留名称或数量非空的行
+  const filled = rows.value.filter(r => (r.name && String(r.name).trim()) || r.quantity)
+
+  if (!filled.length) {
+    toast.warning('请至少填写一条有效记录（商品名称、批号、数量必填）')
     return
   }
 
+  // 名称 -> id 映射（trim 精确匹配）
+  const nameToId = new Map(products.value.map(p => [String(p.name).trim(), p.id]))
+
+  for (let i = 0; i < filled.length; i++) {
+    const r = filled[i]
+    const name = String(r.name || '').trim()
+    const qty = Number(r.quantity)
+    const batch = String(r.batch_number || '').trim()
+    if (!name) { toast.error(`第 ${i + 1} 行请填写商品名称`); return }
+    if (!nameToId.has(name)) { toast.error(`第 ${i + 1} 行商品「${name}」不存在，请从下拉列表选择`); return }
+    if (!batch) { toast.error(`第 ${i + 1} 行请填写批号`); return }
+    if (!Number.isInteger(qty) || qty <= 0 || qty > 99999999) {
+      toast.error(`第 ${i + 1} 行数量必须是 1~99999999 的正整数`)
+      return
+    }
+  }
+
+  const today = isoDate(new Date())
+  const nextYear = isoDate(new Date(Date.now() + 365 * 24 * 3600 * 1000))
+  const stockMethod = mode.value === 'in' ? '采购入库' : '销售出库'
+  const partyKey = mode.value === 'in' ? 'source' : 'destination'
+
+  const items = filled.map(r => {
+    const qty = Number(r.quantity)
+    const price = Number(r.unit_price) || 0
+    const item = {
+      product_id: nameToId.get(String(r.name).trim()),
+      name: String(r.name).trim(),
+      stock_method_name: stockMethod,
+      batch_number: String(r.batch_number).trim(),
+      quantity: qty,
+      unit_price: price,
+      total_amount: parseFloat((qty * price).toFixed(2)),
+      [partyKey]: r.source ? String(r.source).trim() : ''
+    }
+    if (mode.value === 'in') {
+      item.production_date = r.production_date || today
+      item.expiration_date = r.expiration_date || nextYear
+    }
+    return item
+  })
+
+  const payload = { items, recorded_date: today }
+
   submitting.value = true
   try {
-    const stockMethod = mode.value === 'in' ? '采购入库' : '销售出库'
-    const payload = {
-      records: valid.map(r => ({ ...r, stock_method_name: stockMethod })),
-      type: mode.value
-    }
-
-    if (mode.value === 'in') {
-      await batchApi.batchIn(payload)
+    const res = mode.value === 'in' ? await batchApi.batchIn(payload) : await batchApi.batchOut(payload)
+    const successCount = Number(res?.successCount ?? 0)
+    const failCount = Number(res?.failCount ?? 0)
+    const errors = Array.isArray(res?.errors) ? res.errors : []
+    if (failCount === 0) {
+      toast.success(`批量${mode.value === 'in' ? '入库' : '出库'}成功，共 ${successCount} 条`)
+      rows.value = [createEmptyRow(), createEmptyRow(), createEmptyRow()]
+    } else if (successCount > 0) {
+      toast.warning(`部分成功：成功 ${successCount} 条，失败 ${failCount} 条。` + (errors[0] ? '如：' + errors[0] : ''))
     } else {
-      await batchApi.batchOut(payload)
+      toast.error('批量操作全部失败：' + (errors[0] || '请检查数据'))
     }
-
-    toast.success(`批量${mode.value === 'in' ? '入库' : '出库'}成功，共 ${valid.length} 条`)
-    rows.value = [createEmptyRow()]
   } catch (e) {
     toast.error('批量操作失败: ' + e.message)
   } finally {
@@ -220,6 +286,7 @@ async function submitBatch() {
 }
 
 onMounted(() => {
+  loadProducts()
   rows.value = [createEmptyRow(), createEmptyRow(), createEmptyRow()]
 })
 </script>

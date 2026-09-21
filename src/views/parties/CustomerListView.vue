@@ -67,7 +67,7 @@
       <EmptyState v-if="!loading && !items.length" icon="bi-people" title="暂无客户" desc="点击右上角「新增客户」添加" />
 
       <div class="card-footer" v-if="total > 0">
-        <PaginationBar :page="page" :page-size="pageSize" :total="total" @page-change="handlePageChange" />
+        <PaginationBar :page="page" :page-size="pageSize" :total="total" @page-change="handlePageChange" @page-size-change="handlePageSizeChange" />
       </div>
     </div>
 
@@ -181,6 +181,12 @@ async function loadData() {
 
 function handlePageChange(p) {
   page.value = p
+  loadData()
+}
+
+function handlePageSizeChange(size) {
+  pageSize.value = size
+  page.value = 1
   loadData()
 }
 

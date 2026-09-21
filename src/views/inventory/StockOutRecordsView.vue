@@ -55,7 +55,7 @@
               <td>{{ r.quantity }}</td>
               <td>¥{{ formatMoney(r.unit_price) }}</td>
               <td>¥{{ formatMoney(r.total_amount) }}</td>
-              <td>{{ r.source || '-' }}</td>
+              <td>{{ r.destination || '-' }}</td>
               <td>{{ r.display_date || r.recorded_date || '-' }}</td>
               <td>{{ r.remark || '-' }}</td>
               <td>
@@ -82,7 +82,7 @@
       <EmptyState v-if="!loading && !records.length" icon="bi-clipboard-minus" title="暂无出库记录" />
 
       <div class="card-footer" v-if="total > 0">
-        <PaginationBar :page="page" :page-size="pageSize" :total="total" @page-change="handlePageChange" />
+        <PaginationBar :page="page" :page-size="pageSize" :total="total" @page-change="handlePageChange" @page-size-change="handlePageSizeChange" />
       </div>
     </div>
 
@@ -98,7 +98,7 @@
         </div>
         <div class="col-md-6">
           <label class="form-label">客户</label>
-          <input v-model="editingRecord.source" type="text" class="form-control">
+          <input v-model="editingRecord.destination" type="text" class="form-control">
         </div>
         <div class="col-md-6">
           <label class="form-label">出库日期</label>
@@ -226,6 +226,12 @@ function handlePageChange(p) {
   loadRecords()
 }
 
+function handlePageSizeChange(size) {
+  pageSize.value = size
+  page.value = 1
+  loadRecords()
+}
+
 function openEdit(r) {
   editingRecord.value = { ...r }
   showEdit.value = true
@@ -238,7 +244,7 @@ async function handleSaveEdit() {
     await inventoryApi.updateOutRecord(editingRecord.value.id, {
       quantity: editingRecord.value.quantity,
       unit_price: editingRecord.value.unit_price,
-      source: editingRecord.value.source,
+      destination: editingRecord.value.destination,
       recorded_date: editingRecord.value.recorded_date,
       remark: editingRecord.value.remark
     })

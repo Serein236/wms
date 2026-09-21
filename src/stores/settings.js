@@ -22,11 +22,18 @@ export const useSettingsStore = defineStore('settings', {
     async load() {
       try {
         const data = await inventoryApi.getSettings()
-        if (data && data.settings) {
-          this.settings = typeof data.settings === 'string'
-            ? JSON.parse(data.settings)
-            : data.settings
-          this.saveToStorage()
+        if (data) {
+          // 后端返回 key-value 平铺对象；兼容 { settings: ... } 包裹
+          let obj = data
+          if (data.settings) {
+            obj = typeof data.settings === 'string'
+              ? JSON.parse(data.settings)
+              : data.settings
+          }
+          if (obj && typeof obj === 'object') {
+            this.settings = { ...this.settings, ...obj }
+            this.saveToStorage()
+          }
         }
         this.loaded = true
       } catch (e) {

@@ -88,9 +88,9 @@
               <tbody>
                 <tr v-for="item in detailItems" :key="item.id">
                   <td class="fw-semibold">{{ item.product_name }}</td>
-                  <td>{{ item.system_quantity }}</td>
+                  <td>{{ item.system_stock }}</td>
                   <td>
-                    <input v-model.number="item.actual_quantity" type="number" class="form-control form-control-sm" style="width: 80px;" @change="updateItem(item)">
+                    <input v-model.number="item.actual_stock" type="number" min="0" class="form-control form-control-sm" style="width: 80px;" @change="updateItem(item)">
                   </td>
                   <td>
                     <span :class="diffClass(item)">{{ diffValue(item) }}</span>
@@ -161,14 +161,14 @@ function statusLabel(status) {
 }
 
 function diffClass(item) {
-  const diff = (item.actual_quantity ?? 0) - (item.system_quantity ?? 0)
+  const diff = (item.actual_stock ?? 0) - (item.system_stock ?? 0)
   if (diff > 0) return 'text-success fw-bold'
   if (diff < 0) return 'text-danger fw-bold'
   return 'text-muted'
 }
 
 function diffValue(item) {
-  return ((item.actual_quantity ?? 0) - (item.system_quantity ?? 0))
+  return ((item.actual_stock ?? 0) - (item.system_stock ?? 0))
 }
 
 async function loadList() {
@@ -226,10 +226,11 @@ async function viewDetail(s) {
 async function updateItem(item) {
   try {
     await stocktakingApi.updateItem(currentStocktaking.value.id, item.id, {
-      actual_quantity: item.actual_quantity
+      actual_stock: item.actual_stock,
+      remark: item.remark
     })
   } catch (e) {
-    toast.error('更新失败')
+    toast.error('更新失败: ' + e.message)
   }
 }
 

@@ -6,7 +6,7 @@ export const customersApi = {
   },
 
   search(keyword) {
-    return http.get('/api/customers/search', { keyword })
+    return http.get('/api/customers/search', { query: keyword })
   },
 
   getById(id) {
