@@ -9,7 +9,7 @@ router.get('/', stocktakingController.list);
 router.get('/:id', stocktakingController.get);
 router.post('/', requireAdmin, stocktakingController.create);
 router.post('/:id/start', requireAdmin, stocktakingController.start);
-router.put('/:id/items/:itemId', stocktakingController.updateItem);
+router.put('/:id/items/:itemId', requireAdmin, stocktakingController.updateItem);
 router.post('/:id/complete', requireAdmin, stocktakingController.complete);
 router.post('/:id/cancel', requireAdmin, stocktakingController.cancel);
 

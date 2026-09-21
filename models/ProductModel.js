@@ -77,18 +77,19 @@ const ProductModel = {
             }
         }
         
-        const result = await dbUtils.insert(
-            'INSERT INTO products (product_code, name, spec, unit, packing_spec, retail_price, barcode, manufacturer) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [product_code, name, spec, unit, packing_spec, retail_price, barcode, manufacturer]
-        );
-        
-        // 创建商品后，初始化库存记录
-        await dbUtils.insert(
-            'INSERT INTO stock_inventory (product_id, total_in_quantity, total_out_quantity, current_stock, warning_quantity, danger_quantity) VALUES (?, 0, 0, 0, ?, ?)',
-            [result.insertId, warning_quantity, danger_quantity]
-        );
-        
-        return { id: result.insertId, product_code, ...productData };
+        return await dbUtils.executeTransaction(async (connection) => {
+            const result = await dbUtils.insert(
+                'INSERT INTO products (product_code, name, spec, unit, packing_spec, retail_price, barcode, manufacturer) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [product_code, name, spec, unit, packing_spec, retail_price, barcode, manufacturer],
+                connection
+            );
+            await dbUtils.insert(
+                'INSERT INTO stock_inventory (product_id, total_in_quantity, total_out_quantity, current_stock, warning_quantity, danger_quantity) VALUES (?, 0, 0, 0, ?, ?)',
+                [result.insertId, warning_quantity, danger_quantity],
+                connection
+            );
+            return { id: result.insertId, product_code, ...productData };
+        });
     },
 
     async update(id, productData) {

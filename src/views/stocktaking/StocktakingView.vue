@@ -224,11 +224,17 @@ async function viewDetail(s) {
 }
 
 async function updateItem(item) {
+  const n = Number(item.actual_stock)
+  if (item.actual_stock === '' || item.actual_stock === null || item.actual_stock === undefined || !Number.isInteger(n) || n < 0) {
+    toast.warning('实盘数量必须是不小于 0 的整数')
+    return
+  }
   try {
     await stocktakingApi.updateItem(currentStocktaking.value.id, item.id, {
-      actual_stock: item.actual_stock,
+      actual_stock: n,
       remark: item.remark
     })
+    toast.success('已保存')
   } catch (e) {
     toast.error('更新失败: ' + e.message)
   }

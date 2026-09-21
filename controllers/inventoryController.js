@@ -15,7 +15,7 @@ const inventoryController = {
         const { product_id, stock_method_name, batch_number, production_date, expiration_date, quantity, unit_price, total_amount, source, remark, recorded_date } = req.body;
         const created_by = req.session.userId;
         const username = req.session.username;
-        
+
         try {
             if (!product_id || !Number.isInteger(Number(product_id)) || Number(product_id) <= 0) {
                 return res.status(400).json({ success: false, message: '无效的商品ID' });
@@ -26,22 +26,28 @@ const inventoryController = {
             if (!batch_number) {
                 return res.status(400).json({ success: false, message: '请输入批次号' });
             }
-            if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) <= 0) {
+            const qty = Number(quantity);
+            if (!Number.isInteger(qty) || qty < 1) {
                 return res.status(400).json({ success: false, message: '数量必须为正整数' });
             }
             if (!recorded_date) {
                 return res.status(400).json({ success: false, message: '请选择记录日期' });
             }
+            const unitPrice = unit_price === undefined || unit_price === null || unit_price === '' ? 0 : parseFloat(unit_price);
+            const totalAmount = total_amount === undefined || total_amount === null || total_amount === ''
+                ? parseFloat((qty * unitPrice).toFixed(2))
+                : parseFloat(total_amount);
             const formattedDate = formatDateForMySQL(recorded_date);
             const formattedProductionDate = formatDateForMySQL(production_date);
             const formattedExpirationDate = formatDateForMySQL(expiration_date);
-            
+
             const product = await dbUtils.queryOne('SELECT name FROM products WHERE id = ?', [product_id]);
             const productName = product ? product.name : '未知商品';
 
             // 先执行库存事务；只有入库成功后才自动登记供应商，避免失败时产生垃圾数据
             await InventoryService.inStock({
-                product_id, stock_method_name, batch_number, production_date: formattedProductionDate, expiration_date: formattedExpirationDate, quantity, unit_price, total_amount, source, remark, recorded_date: formattedDate, created_by
+                product_id, stock_method_name, batch_number, production_date: formattedProductionDate, expiration_date: formattedExpirationDate,
+                quantity: qty, unit_price: unitPrice, total_amount: totalAmount, source, remark, recorded_date: formattedDate, created_by
             });
 
             // Auto-create supplier if new name（事务成功后）
@@ -68,7 +74,7 @@ const inventoryController = {
         const { product_id, stock_method_name, batch_number, quantity, unit_price, total_amount, destination, remark, recorded_date } = req.body;
         const created_by = req.session.userId;
         const username = req.session.username;
-        
+
         try {
             if (!product_id || !Number.isInteger(Number(product_id)) || Number(product_id) <= 0) {
                 return res.status(400).json({ success: false, message: '无效的商品ID' });
@@ -79,20 +85,27 @@ const inventoryController = {
             if (!batch_number) {
                 return res.status(400).json({ success: false, message: '请输入批次号' });
             }
-            if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) <= 0) {
+            const qty = Number(quantity);
+            if (!Number.isInteger(qty) || qty < 1) {
                 return res.status(400).json({ success: false, message: '数量必须为正整数' });
             }
             if (!recorded_date) {
                 return res.status(400).json({ success: false, message: '请选择记录日期' });
             }
+            const unitPrice = unit_price === undefined || unit_price === null || unit_price === '' ? 0 : parseFloat(unit_price);
+            const totalAmount = total_amount === undefined || total_amount === null || total_amount === ''
+                ? parseFloat((qty * unitPrice).toFixed(2))
+                : parseFloat(total_amount);
             const formattedDate = formatDateForMySQL(recorded_date);
-            
+
             const product = await dbUtils.queryOne('SELECT name FROM products WHERE id = ?', [product_id]);
             const productName = product ? product.name : '未知商品';
 
             // 先执行库存事务；库存不足等失败会抛错返回 409，此时不得创建客户
             await InventoryService.outStock({
-                product_id, stock_method_name, batch_number, quantity, unit_price, total_amount, destination, remark, recorded_date: formattedDate, created_by
+                product_id, stock_method_name, batch_number, quantity: qty,
+                unit_price: unitPrice, total_amount: totalAmount,
+                destination, remark, recorded_date: formattedDate, created_by
             });
 
             // Auto-create customer if new name（事务成功后）

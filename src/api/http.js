@@ -98,10 +98,14 @@ export const http = {
     })
   },
 
-  download(url, params) {
-    return fetch(buildQuery(url, params), {
+  async download(url, params) {
+    const res = await fetch(buildQuery(url, params), {
       credentials: 'same-origin'
     })
+    if (!res.ok) {
+      throw new ApiError(res.status, `下载失败 (${res.status})`)
+    }
+    return res
   }
 }
 

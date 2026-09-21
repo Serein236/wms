@@ -10,66 +10,86 @@ const { addPagination } = require('../utils/pagination');
 const BackupService = require('./BackupService');
 const SettingsService = require('./SettingsService');
 
+function assertPositiveQty(quantity) {
+    const qty = Number(quantity);
+    if (!Number.isInteger(qty) || qty < 1) {
+        throw new Error('数量必须为正整数');
+    }
+    return qty;
+}
+
+async function inStockOnConnection(connection, data) {
+    const qty = assertPositiveQty(data.quantity);
+    const payload = { ...data, quantity: qty };
+    const record = await InRecordModel.create(payload, connection);
+
+    const existingBatch = await dbUtils.queryOne(
+        'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ? FOR UPDATE',
+        [payload.product_id, payload.batch_number],
+        connection
+    );
+
+    if (existingBatch) {
+        await dbUtils.update(
+            'UPDATE batch_stock SET batch_in_quantity = batch_in_quantity + ?, batch_current_stock = batch_current_stock + ? WHERE id = ?',
+            [qty, qty, existingBatch.id],
+            connection
+        );
+    } else {
+        await dbUtils.insert(
+            'INSERT INTO batch_stock (product_id, batch_number, production_date, expiration_date, batch_in_quantity, batch_out_quantity, batch_current_stock, batch_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [payload.product_id, payload.batch_number, payload.production_date, payload.expiration_date, qty, 0, qty, 'normal'],
+            connection
+        );
+    }
+
+    await StockModel.updateStock(payload.product_id, qty, 0, connection);
+    return record;
+}
+
+async function outStockOnConnection(connection, data) {
+    const qty = assertPositiveQty(data.quantity);
+    const payload = { ...data, quantity: qty };
+    const batchStock = await dbUtils.queryOne(
+        'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ? FOR UPDATE',
+        [payload.product_id, payload.batch_number],
+        connection
+    );
+
+    if (!batchStock || Number(batchStock.batch_current_stock) < qty) {
+        throw new Error('批次库存不足');
+    }
+
+    const stock = await StockModel.findByProductId(payload.product_id, connection);
+    if (!stock || Number(stock.current_stock) < qty) {
+        throw new Error('总库存不足');
+    }
+
+    const record = await OutRecordModel.create(payload, connection);
+
+    await dbUtils.update(
+        'UPDATE batch_stock SET batch_out_quantity = batch_out_quantity + ?, batch_current_stock = batch_current_stock - ? WHERE id = ? AND batch_current_stock >= ?',
+        [qty, qty, batchStock.id, qty],
+        connection
+    );
+
+    await StockModel.updateStock(payload.product_id, 0, qty, connection);
+    return record;
+}
+
 const InventoryService = {
-    async inStock(data) {
-        return await dbUtils.executeTransaction(async (connection) => {
-            const record = await InRecordModel.create(data, connection);
-            
-            const existingBatch = await dbUtils.queryOne(
-                'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
-                [data.product_id, data.batch_number],
-                connection
-            );
-            
-            if (existingBatch) {
-                await dbUtils.update(
-                    'UPDATE batch_stock SET batch_in_quantity = batch_in_quantity + ?, batch_current_stock = batch_current_stock + ? WHERE id = ?',
-                    [data.quantity, data.quantity, existingBatch.id],
-                    connection
-                );
-            } else {
-                await dbUtils.insert(
-                    'INSERT INTO batch_stock (product_id, batch_number, production_date, expiration_date, batch_in_quantity, batch_out_quantity, batch_current_stock, batch_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                    [data.product_id, data.batch_number, data.production_date, data.expiration_date, data.quantity, 0, data.quantity, 'normal'],
-                    connection
-                );
-            }
-            
-            await StockModel.updateStock(data.product_id, data.quantity, 0, connection);
-            
-            return record;
-        });
+    async inStock(data, connection = null) {
+        if (connection) {
+            return await inStockOnConnection(connection, data);
+        }
+        return await dbUtils.executeTransaction(async (conn) => inStockOnConnection(conn, data));
     },
 
-    async outStock(data) {
-        return await dbUtils.executeTransaction(async (connection) => {
-            const batchStock = await dbUtils.queryOne(
-                'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
-                [data.product_id, data.batch_number],
-                connection
-            );
-            
-            if (!batchStock || batchStock.batch_current_stock < data.quantity) {
-                throw new Error('批次库存不足');
-            }
-            
-            const stock = await StockModel.findByProductId(data.product_id, connection);
-            if (!stock || stock.current_stock < data.quantity) {
-                throw new Error('总库存不足');
-            }
-            
-            const record = await OutRecordModel.create(data, connection);
-            
-            await dbUtils.update(
-                'UPDATE batch_stock SET batch_out_quantity = batch_out_quantity + ?, batch_current_stock = batch_current_stock - ? WHERE id = ?',
-                [data.quantity, data.quantity, batchStock.id],
-                connection
-            );
-            
-            await StockModel.updateStock(data.product_id, 0, data.quantity, connection);
-            
-            return record;
-        });
+    async outStock(data, connection = null) {
+        if (connection) {
+            return await outStockOnConnection(connection, data);
+        }
+        return await dbUtils.executeTransaction(async (conn) => outStockOnConnection(conn, data));
     },
 
     async getStockReport() {
@@ -223,7 +243,24 @@ const InventoryService = {
                 throw new Error('入库记录不存在');
             }
 
-            const quantityDiff = data.quantity - originalRecord.quantity;
+            if (data.batch_number !== undefined && data.batch_number !== null && data.batch_number !== originalRecord.batch_number) {
+                throw new Error('不允许修改批号，请撤销后重新录入');
+            }
+            if (data.product_id !== undefined && data.product_id !== null && Number(data.product_id) !== Number(originalRecord.product_id)) {
+                throw new Error('不允许修改商品，请撤销后重新录入');
+            }
+
+            if (data.quantity !== undefined && (!Number.isInteger(Number(data.quantity)) || Number(data.quantity) < 1)) {
+                throw new Error('数量必须为正整数');
+            }
+            const nextQty = data.quantity !== undefined ? Number(data.quantity) : Number(originalRecord.quantity);
+            const nextPrice = data.unit_price !== undefined && data.unit_price !== null && data.unit_price !== ''
+                ? parseFloat(data.unit_price) : Number(originalRecord.unit_price || 0);
+            if (data.total_amount === undefined || data.total_amount === null || data.total_amount === '') {
+                data = { ...data, total_amount: parseFloat((nextQty * nextPrice).toFixed(2)) };
+            }
+
+            const quantityDiff = Number(data.quantity !== undefined ? data.quantity : originalRecord.quantity) - Number(originalRecord.quantity);
 
             if (quantityDiff !== 0) {
                 if (quantityDiff < 0) {
@@ -314,7 +351,24 @@ const InventoryService = {
                 throw new Error('出库记录不存在');
             }
 
-            const quantityDiff = data.quantity - originalRecord.quantity;
+            if (data.batch_number !== undefined && data.batch_number !== null && data.batch_number !== originalRecord.batch_number) {
+                throw new Error('不允许修改批号，请撤销后重新录入');
+            }
+            if (data.product_id !== undefined && data.product_id !== null && Number(data.product_id) !== Number(originalRecord.product_id)) {
+                throw new Error('不允许修改商品，请撤销后重新录入');
+            }
+
+            if (data.quantity !== undefined && (!Number.isInteger(Number(data.quantity)) || Number(data.quantity) < 1)) {
+                throw new Error('数量必须为正整数');
+            }
+            const nextQty = data.quantity !== undefined ? Number(data.quantity) : Number(originalRecord.quantity);
+            const nextPrice = data.unit_price !== undefined && data.unit_price !== null && data.unit_price !== ''
+                ? parseFloat(data.unit_price) : Number(originalRecord.unit_price || 0);
+            if (data.total_amount === undefined || data.total_amount === null || data.total_amount === '') {
+                data = { ...data, total_amount: parseFloat((nextQty * nextPrice).toFixed(2)) };
+            }
+
+            const quantityDiff = Number(data.quantity !== undefined ? data.quantity : originalRecord.quantity) - Number(originalRecord.quantity);
 
             if (quantityDiff !== 0) {
                 if (quantityDiff > 0) {
@@ -386,6 +440,10 @@ const InventoryService = {
 
     // 修改密码
     async changePassword(userId, currentPassword, newPassword) {
+        if (!newPassword || String(newPassword).length < 6) {
+            return { success: false, message: '新密码至少需要6位' };
+        }
+
         const user = await dbUtils.queryOne('SELECT password FROM users WHERE id = ?', [userId]);
         if (!user) {
             return { success: false, message: '用户不存在' };

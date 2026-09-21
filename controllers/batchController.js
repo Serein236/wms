@@ -43,12 +43,17 @@ const batchController = {
                     errors.push(`第${i + 1}行: 商品不存在「${item.name || item.product_name || ''}」`);
                     continue;
                 }
-                if (!item.quantity || !item.batch_number || !item.stock_method_name) {
+                if (!item.batch_number || !item.stock_method_name) {
                     failCount++;
-                    errors.push(`第${i + 1}行: 缺少必填字段（批号/数量/出入库方式）`);
+                    errors.push(`第${i + 1}行: 缺少必填字段（批号/出入库方式）`);
                     continue;
                 }
-                const qty = parseInt(item.quantity);
+                const qty = Number(item.quantity);
+                if (!Number.isInteger(qty) || qty < 1) {
+                    failCount++;
+                    errors.push(`第${i + 1}行: 数量必须为正整数`);
+                    continue;
+                }
                 // 入库日期为 NOT NULL，未提供时给默认值（生产=今天，过期=一年后）
                 const today = formatDateForMySQL(new Date());
                 const nextYear = formatDateForMySQL(new Date(Date.now() + 365 * 24 * 3600 * 1000));
@@ -98,12 +103,17 @@ const batchController = {
                     errors.push(`第${i + 1}行: 商品不存在「${item.name || item.product_name || ''}」`);
                     continue;
                 }
-                if (!item.quantity || !item.batch_number || !item.stock_method_name) {
+                if (!item.batch_number || !item.stock_method_name) {
                     failCount++;
-                    errors.push(`第${i + 1}行: 缺少必填字段（批号/数量/出入库方式）`);
+                    errors.push(`第${i + 1}行: 缺少必填字段（批号/出入库方式）`);
                     continue;
                 }
-                const qty = parseInt(item.quantity);
+                const qty = Number(item.quantity);
+                if (!Number.isInteger(qty) || qty < 1) {
+                    failCount++;
+                    errors.push(`第${i + 1}行: 数量必须为正整数`);
+                    continue;
+                }
                 const today = formatDateForMySQL(new Date());
 
                 await InventoryService.outStock({

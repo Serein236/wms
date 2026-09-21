@@ -108,87 +108,102 @@ const stocktakingController = {
 
     async complete(req, res) {
         try {
-            const stocktaking = await dbUtils.queryOne(
-                "SELECT * FROM stocktaking WHERE id = ? AND status = 'in_progress'",
-                [req.params.id]
-            );
-            if (!stocktaking) return res.status(400).json({ success: false, message: '盘点单不在进行中状态' });
+            const adjustedCount = await dbUtils.executeTransaction(async (connection) => {
+                const stocktaking = await dbUtils.queryOne(
+                    "SELECT * FROM stocktaking WHERE id = ? AND status = 'in_progress' FOR UPDATE",
+                    [req.params.id],
+                    connection
+                );
+                if (!stocktaking) throw new Error('盘点单不在进行中状态');
 
-            const uncounted = await dbUtils.queryOne(
-                'SELECT COUNT(*) as count FROM stocktaking_items WHERE stocktaking_id = ? AND actual_stock IS NULL',
-                [req.params.id]
-            );
+                const uncounted = await dbUtils.queryOne(
+                    'SELECT COUNT(*) as count FROM stocktaking_items WHERE stocktaking_id = ? AND actual_stock IS NULL',
+                    [req.params.id],
+                    connection
+                );
+                if (uncounted.count > 0) {
+                    throw new Error(`还有 ${uncounted.count} 个商品未盘点`);
+                }
 
-            if (uncounted.count > 0) {
-                return res.status(400).json({ success: false, message: `还有 ${uncounted.count} 个商品未盘点` });
-            }
+                const differences = await dbUtils.query(
+                    `SELECT si.*, p.name as product_name
+                     FROM stocktaking_items si
+                     LEFT JOIN products p ON si.product_id = p.id
+                     WHERE si.stocktaking_id = ? AND si.difference != 0 AND si.adjusted_at IS NULL`,
+                    [req.params.id],
+                    connection
+                );
 
-            const differences = await dbUtils.query(
-                'SELECT * FROM stocktaking_items WHERE stocktaking_id = ? AND difference != 0',
-                [req.params.id]
-            );
-
-            const today = formatDateForMySQL(new Date());
-            const adjustBatchNo = `PANDIAN-${req.params.id}`;
-            for (const item of differences) {
-                const adjustment = Number(item.actual_stock) - Number(item.system_stock);
-                if (adjustment > 0) {
-                    // 盘盈：通过入库事务建立 PANDIAN 批次，
-                    // 保证 batch_stock / stock_inventory / in_records 三处一致（库存报表基于 batch_stock）
-                    await InventoryService.inStock({
-                        product_id: item.product_id,
-                        stock_method_name: '盘点入库',
-                        batch_number: adjustBatchNo,
-                        production_date: today,
-                        expiration_date: '9999-12-31',
-                        quantity: adjustment,
-                        unit_price: 0,
-                        total_amount: 0,
-                        source: null,
-                        recorded_date: today,
-                        created_by: req.session.userId
-                    });
-                } else if (adjustment < 0) {
-                    // 盘亏：按近效期先出（FIFO）从现有批次逐批扣减，保持批次库存与总库存一致
-                    let remain = Math.abs(adjustment);
-                    const batches = await dbUtils.query(
-                        `SELECT batch_number, batch_current_stock FROM batch_stock
-                         WHERE product_id = ? AND batch_current_stock > 0
-                         ORDER BY expiration_date ASC, batch_number ASC`,
-                        [item.product_id]
-                    );
-                    for (const b of batches) {
-                        if (remain <= 0) break;
-                        const q = Math.min(Number(b.batch_current_stock), remain);
-                        await InventoryService.outStock({
+                const today = formatDateForMySQL(new Date());
+                const adjustBatchNo = `PANDIAN-${req.params.id}`;
+                for (const item of differences) {
+                    const adjustment = Number(item.actual_stock) - Number(item.system_stock);
+                    if (adjustment > 0) {
+                        await InventoryService.inStock({
                             product_id: item.product_id,
-                            stock_method_name: '盘点出库',
-                            batch_number: b.batch_number,
-                            quantity: q,
+                            stock_method_name: '盘点入库',
+                            batch_number: adjustBatchNo,
+                            production_date: today,
+                            expiration_date: '9999-12-31',
+                            quantity: adjustment,
                             unit_price: 0,
                             total_amount: 0,
-                            destination: null,
+                            source: null,
                             recorded_date: today,
                             created_by: req.session.userId
-                        });
-                        remain -= q;
+                        }, connection);
+                    } else if (adjustment < 0) {
+                        let remain = Math.abs(adjustment);
+                        const batches = await dbUtils.query(
+                            `SELECT batch_number, batch_current_stock FROM batch_stock
+                             WHERE product_id = ? AND batch_current_stock > 0
+                             ORDER BY expiration_date ASC, batch_number ASC
+                             FOR UPDATE`,
+                            [item.product_id],
+                            connection
+                        );
+                        for (const b of batches) {
+                            if (remain <= 0) break;
+                            const q = Math.min(Number(b.batch_current_stock), remain);
+                            await InventoryService.outStock({
+                                product_id: item.product_id,
+                                stock_method_name: '盘点出库',
+                                batch_number: b.batch_number,
+                                quantity: q,
+                                unit_price: 0,
+                                total_amount: 0,
+                                destination: null,
+                                recorded_date: today,
+                                created_by: req.session.userId
+                            }, connection);
+                            remain -= q;
+                        }
+                        if (remain > 0) {
+                            throw new Error(`商品「${item.product_name || item.product_id}」可用批次库存不足，无法完成盘亏`);
+                        }
                     }
-                    if (remain > 0) {
-                        throw new Error(`商品「${item.product_name || item.product_id}」可用批次库存不足，无法完成盘亏`);
-                    }
+                    await dbUtils.update(
+                        'UPDATE stocktaking_items SET adjusted_at = NOW() WHERE id = ?',
+                        [item.id],
+                        connection
+                    );
                 }
-            }
 
-            await dbUtils.update(
-                "UPDATE stocktaking SET status = 'completed', completed_at = NOW() WHERE id = ?",
-                [req.params.id]
-            );
+                await dbUtils.update(
+                    "UPDATE stocktaking SET status = 'completed', completed_at = NOW() WHERE id = ?",
+                    [req.params.id],
+                    connection
+                );
+                return differences.length;
+            });
 
-            logger.info('完成盘点', { operator: req.session.username, operatorId: req.session.userId, adjustments: differences.length });
-            res.json({ success: true, message: '盘点完成，库存已调整', adjustedCount: differences.length });
+            logger.info('完成盘点', { operator: req.session.username, operatorId: req.session.userId, adjustments: adjustedCount });
+            res.json({ success: true, message: '盘点完成，库存已调整', adjustedCount });
         } catch (error) {
             console.error('完成盘点错误:', error);
-            res.status(500).json({ success: false, message: '完成盘点失败' });
+            const message = error.message || '完成盘点失败';
+            const clientError = message.includes('不在进行中') || message.includes('未盘点') || message.includes('批次库存不足');
+            res.status(clientError ? 400 : 500).json({ success: false, message });
         }
     },
 

@@ -176,7 +176,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { inventoryApi } from '@/api/inventory'
 import { backupApi } from '@/api/backup'
@@ -191,14 +191,17 @@ const toast = useToast()
 const settingsStore = useSettingsStore()
 const auth = useAuthStore()
 
-const tabs = [
-  { id: 'company', label: '公司信息', icon: 'bi-building' },
+const allTabs = [
+  { id: 'company', label: '公司信息', icon: 'bi-building', adminOnly: true },
   { id: 'security', label: '安全设置', icon: 'bi-shield-lock' },
-  { id: 'data', label: '数据管理', icon: 'bi-database' },
-  { id: 'stockMethods', label: '出入库方式', icon: 'bi-list-check' }
+  { id: 'data', label: '数据管理', icon: 'bi-database', adminOnly: true },
+  { id: 'stockMethods', label: '出入库方式', icon: 'bi-list-check', adminOnly: true }
 ]
 
-const activeTab = ref('company')
+const isAdmin = computed(() => auth.role === 'admin')
+const tabs = computed(() => allTabs.filter(t => !t.adminOnly || isAdmin.value))
+
+const activeTab = ref(isAdmin.value ? 'company' : 'security')
 
 // 公司信息
 const form = ref({

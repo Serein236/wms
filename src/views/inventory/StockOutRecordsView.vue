@@ -241,9 +241,12 @@ async function handleSaveEdit() {
   if (!editingRecord.value) return
   saving.value = true
   try {
+    const qty = Number(editingRecord.value.quantity)
+    const price = Number(editingRecord.value.unit_price) || 0
     await inventoryApi.updateOutRecord(editingRecord.value.id, {
-      quantity: editingRecord.value.quantity,
-      unit_price: editingRecord.value.unit_price,
+      quantity: qty,
+      unit_price: price,
+      total_amount: Number((qty * price).toFixed(2)),
       destination: editingRecord.value.destination,
       recorded_date: editingRecord.value.recorded_date,
       remark: editingRecord.value.remark

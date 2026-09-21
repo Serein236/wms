@@ -102,7 +102,7 @@
             {{ editing ? '新密码（留空则不修改）' : '初始密码' }}
             <span v-if="!editing" class="text-danger">*</span>
           </label>
-          <input v-model="form.password" type="text" class="form-control" minlength="6" placeholder="至少 6 位">
+          <input v-model="form.password" type="password" class="form-control" minlength="6" autocomplete="new-password" placeholder="至少 6 位">
           <div class="form-text">密码至少 6 位，建议首次登录后修改</div>
         </div>
       </div>

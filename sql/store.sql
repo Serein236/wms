@@ -272,6 +272,7 @@ CREATE TABLE `stocktaking_items` (
   `remark` text DEFAULT NULL COMMENT '备注',
   `counted_at` timestamp NULL DEFAULT NULL COMMENT '盘点时间',
   `counted_by` int DEFAULT NULL COMMENT '盘点人',
+  `adjusted_at` timestamp NULL DEFAULT NULL COMMENT '库存调整应用时间（幂等标记）',
   PRIMARY KEY (`id`),
   KEY `fk_st_stocktaking` (`stocktaking_id`),
   KEY `fk_st_product` (`product_id`),

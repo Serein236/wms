@@ -65,7 +65,7 @@ const UserModel = {
 
     async isAdmin(id) {
         const user = await this.findById(id);
-        return user && user.role === 'admin';
+        return !!(user && user.role === 'admin' && user.is_active !== false && user.is_active !== 0);
     }
 };
 

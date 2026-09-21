@@ -181,22 +181,29 @@ function downloadTemplate() {
 function handleFileUpload(e) {
   const file = e.target.files[0]
   if (!file) return
-  // 动态导入 xlsx 库
-  import('xlsx').then(XLSX => {
+  import('xlsx').then(mod => {
+    const XLSX = mod.default || mod
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
         const data = new Uint8Array(ev.target.result)
-        const wb = XLSX.read(data, { type: 'array' })
+        const wb = XLSX.read(data, { type: 'array', cellDates: true })
         const ws = wb.Sheets[wb.SheetNames[0]]
         const json = XLSX.utils.sheet_to_json(ws)
+        const formatDateCell = (v) => {
+          if (v === undefined || v === null || v === '') return ''
+          if (v instanceof Date && !Number.isNaN(v.getTime())) {
+            return v.toISOString().slice(0, 10)
+          }
+          return String(v)
+        }
         rows.value = json.map(r => ({
           name: r['商品名称'] || r.name || '',
           batch_number: r['批号'] || r.batch_number || '',
-          production_date: r['生产日期'] || '',
-          expiration_date: r['过期日期'] || '',
-          quantity: Number(r['数量']) || null,
-          unit_price: Number(r['单价']) || null,
+          production_date: formatDateCell(r['生产日期'] ?? r.production_date),
+          expiration_date: formatDateCell(r['过期日期'] ?? r.expiration_date),
+          quantity: Number(r['数量'] ?? r.quantity) || null,
+          unit_price: Number(r['单价'] ?? r.unit_price) || null,
           source: r['供应商'] || r['客户'] || r['source'] || ''
         }))
         toast.success(`导入 ${rows.value.length} 条记录`)

@@ -32,6 +32,7 @@ const routes = [
       { path: 'import', name: 'import', component: () => import('@/views/import/ImportView.vue'), meta: { title: '数据导入', requireAdmin: true } },
       { path: 'stocktaking', name: 'stocktaking', component: () => import('@/views/stocktaking/StocktakingView.vue'), meta: { title: '库存盘点', requireAdmin: true } },
       { path: 'users', name: 'users', component: () => import('@/views/settings/UserListView.vue'), meta: { title: '用户管理', requireAdmin: true } },
+      { path: 'profile', name: 'profile', component: () => import('@/views/settings/SettingsView.vue'), meta: { title: '个人设置' } },
       { path: 'settings', name: 'settings', component: () => import('@/views/settings/SettingsView.vue'), meta: { title: '系统设置', requireAdmin: true } }
     ]
   },

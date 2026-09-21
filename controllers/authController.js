@@ -114,17 +114,23 @@ const authController = {
      */
     async getCurrentUser(req, res) {
         let role = 'user';
+        let loggedIn = !!req.session.userId;
         if (req.session.userId) {
             try {
                 const user = await UserModel.findById(req.session.userId);
-                if (user && user.role) role = user.role;
+                if (!user || user.is_active === false || user.is_active === 0) {
+                    loggedIn = false;
+                    role = 'user';
+                } else if (user.role) {
+                    role = user.role;
+                }
             } catch (error) {
                 logger.error('获取当前用户失败', { operator: req.session?.username, operatorId: req.session?.userId, error: error.message });
             }
         }
         res.json({
-            loggedIn: !!req.session.userId,
-            username: req.session.username,
+            loggedIn,
+            username: loggedIn ? req.session.username : undefined,
             role
         });
     },
@@ -229,7 +235,11 @@ const authController = {
 
             const newUser = await UserModel.findByUsername(username);
             logger.userCreated(username, newUser.id, req.session.username, req.session.userId);
-            res.json({ success: true, message: '用户创建成功' });
+            res.json({
+                success: true,
+                message: '用户创建成功',
+                data: { id: newUser.id, username: newUser.username, role: newUser.role, is_active: newUser.is_active }
+            });
         } catch (error) {
             console.error('创建用户错误:', error);
             logger.error('创建用户失败', { operator: req.session?.username, operatorId: req.session?.userId, username, role, error: error.message });
@@ -259,7 +269,7 @@ const authController = {
      */
     async updateUser(req, res) {
         const { id } = req.params;
-        const { username, role, password } = req.body;
+        const { username, role, password, is_active } = req.body;
 
         if (role !== undefined && !['admin', 'user'].includes(role)) {
             return res.status(400).json({ success: false, message: '角色必须是 admin 或 user' });
@@ -288,10 +298,26 @@ const authController = {
                 return res.json({ success: true, message: '密码修改成功' });
             }
 
-            // 否则执行用户信息更新（用户名和角色）
+            // 否则执行用户信息更新（用户名、角色、启用状态）
             // 不能修改自己的角色
             if (parseInt(id) === req.session.userId && role !== undefined) {
                 return res.status(400).json({ success: false, message: '不能修改自己的角色' });
+            }
+
+            // 不能通过 PUT 禁用自己
+            const nextActive = is_active === undefined ? undefined
+                : !(is_active === false || is_active === 0 || is_active === '0' || is_active === 'false');
+            if (parseInt(id) === req.session.userId && nextActive === false) {
+                return res.status(400).json({ success: false, message: '不能禁用当前登录的用户' });
+            }
+
+            // 禁用管理员时校验最后一个管理员
+            if (nextActive === false && user.role === 'admin' && user.is_active !== false && user.is_active !== 0) {
+                const allUsers = await UserModel.findAll();
+                const activeAdminCount = allUsers.filter(u => u.role === 'admin' && u.is_active !== false && u.is_active !== 0).length;
+                if (activeAdminCount <= 1) {
+                    return res.status(400).json({ success: false, message: '不能禁用最后一个管理员' });
+                }
             }
 
             // 如果要修改用户名，检查是否与其他用户冲突
@@ -302,9 +328,11 @@ const authController = {
                 }
             }
 
-            await UserModel.update(id, { username, role });
+            const payload = { username, role };
+            if (nextActive !== undefined) payload.is_active = nextActive;
+            await UserModel.update(id, payload);
 
-            logger.userUpdated(username || user.username, user.id, req.session.username, req.session.userId, { username, role });
+            logger.userUpdated(username || user.username, user.id, req.session.username, req.session.userId, payload);
             res.json({ success: true, message: '用户更新成功' });
         } catch (error) {
             console.error('更新用户错误:', error);

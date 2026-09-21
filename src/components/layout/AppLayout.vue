@@ -4,7 +4,7 @@
     <aside class="sidebar" :class="{ show: sidebarOpen }">
       <div class="sidebar-brand">
         <i class="bi bi-warehouse"></i>
-        <span>{{ config.companyName }}</span>
+        <span>{{ brandName }}</span>
       </div>
       <nav class="sidebar-nav">
         <template v-for="item in visibleMenuItems" :key="item.label">
@@ -99,10 +99,10 @@
       </main>
 
       <footer class="app-footer">
-        <span>{{ config.companyName }}</span>
-        <template v-if="config.icp">
+        <span>{{ brandName }}</span>
+        <template v-if="footerIcp">
           <span class="mx-2">|</span>
-          <a :href="config.icpUrl || '#'" target="_blank">{{ config.icp }}</a>
+          <a :href="footerIcpUrl || '#'" target="_blank">{{ footerIcp }}</a>
         </template>
       </footer>
     </div>
@@ -114,12 +114,17 @@ import { ref, reactive, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { config } from '@/utils/config'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 
 const route = useRoute()
 const router = useRouter()
 const sidebarOpen = ref(false)
 
 const auth = useAuthStore()
+const settingsStore = useSettingsStore()
+const brandName = computed(() => settingsStore.companyName || config.companyName)
+const footerIcp = computed(() => settingsStore.settings?.icp || config.icp)
+const footerIcpUrl = computed(() => settingsStore.settings?.icpUrl || config.icpUrl)
 
 // 菜单定义（adminOnly 仅管理员可见）
 const menuItems = [
@@ -181,6 +186,12 @@ const menuItems = [
   },
   { icon: 'bi-bar-chart-line', label: '看板大屏', to: '/dashboard' },
   {
+    icon: 'bi-person-gear', label: '个人中心', to: '/profile',
+    children: [
+      { icon: 'bi-shield-lock', label: '修改密码', to: '/profile' }
+    ]
+  },
+  {
     icon: 'bi-gear-wide-connected', label: '系统管理', to: '/settings', adminOnly: true,
     children: [
       { icon: 'bi-upload', label: '数据导入', to: '/import', adminOnly: true },
@@ -204,6 +215,11 @@ const visibleMenuItems = computed(() => {
   }
   return menuItems.map(filterNode).filter(Boolean)
 })
+
+// 侧边栏品牌/页脚读取系统设置（登录后加载）
+watch(() => auth.loggedIn, (v) => {
+  if (v) settingsStore.load()
+}, { immediate: true })
 
 // 展开状态
 const expandedMenus = reactive({})
