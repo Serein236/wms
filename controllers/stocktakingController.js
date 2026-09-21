@@ -80,6 +80,9 @@ const stocktakingController = {
 
     async updateItem(req, res) {
         const { actual_stock, remark } = req.body;
+        if (actual_stock === undefined) {
+            return res.status(400).json({ success: false, message: '请提供实盘数量' });
+        }
         if (actual_stock !== null && actual_stock !== undefined) {
             const n = Number(actual_stock);
             if (!Number.isInteger(n) || n < 0) {
@@ -87,16 +90,25 @@ const stocktakingController = {
             }
         }
         try {
+            const stocktaking = await dbUtils.queryOne(
+                "SELECT * FROM stocktaking WHERE id = ? AND status = 'in_progress'",
+                [req.params.id]
+            );
+            if (!stocktaking) {
+                return res.status(400).json({ success: false, message: '盘点单不在进行中状态' });
+            }
+
             const item = await dbUtils.queryOne(
                 'SELECT * FROM stocktaking_items WHERE id = ? AND stocktaking_id = ?',
                 [req.params.itemId, req.params.id]
             );
             if (!item) return res.status(404).json({ success: false, message: '项目不存在' });
 
-            const difference = actual_stock !== null ? actual_stock - item.system_stock : 0;
+            const actual = actual_stock === null ? null : Number(actual_stock);
+            const difference = actual !== null ? actual - Number(item.system_stock) : 0;
             await dbUtils.update(
                 'UPDATE stocktaking_items SET actual_stock = ?, difference = ?, remark = ?, counted_at = NOW(), counted_by = ? WHERE id = ?',
-                [actual_stock, difference, remark || null, req.session.userId, req.params.itemId]
+                [actual, difference, remark || null, req.session.userId, req.params.itemId]
             );
 
             res.json({ success: true, message: '已更新' });

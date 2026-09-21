@@ -208,25 +208,28 @@ const InventoryService = {
             }
 
             const batchStock = await dbUtils.queryOne(
-                'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
+                'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ? FOR UPDATE',
                 [inRecord.product_id, inRecord.batch_number],
                 connection
             );
 
-            if (!batchStock || batchStock.batch_current_stock < inRecord.quantity) {
+            if (!batchStock || Number(batchStock.batch_current_stock) < Number(inRecord.quantity)) {
                 throw new Error('批次库存不足，无法撤销');
             }
 
             const stock = await StockModel.findByProductId(inRecord.product_id, connection);
-            if (!stock || stock.current_stock < inRecord.quantity) {
+            if (!stock || Number(stock.current_stock) < Number(inRecord.quantity)) {
                 throw new Error('总库存不足，无法撤销');
             }
 
-            await dbUtils.update(
-                'UPDATE batch_stock SET batch_in_quantity = batch_in_quantity - ?, batch_current_stock = batch_current_stock - ? WHERE id = ?',
-                [inRecord.quantity, inRecord.quantity, batchStock.id],
+            const upd = await dbUtils.update(
+                'UPDATE batch_stock SET batch_in_quantity = batch_in_quantity - ?, batch_current_stock = batch_current_stock - ? WHERE id = ? AND batch_current_stock >= ?',
+                [inRecord.quantity, inRecord.quantity, batchStock.id, inRecord.quantity],
                 connection
             );
+            if (upd && upd.affectedRows === 0) {
+                throw new Error('批次库存不足，无法撤销');
+            }
 
             await StockModel.updateStock(inRecord.product_id, 0, inRecord.quantity, connection);
 
