@@ -196,3 +196,8 @@ runtime/
 *.tmp.xlsx
 *.tmp.csv
 .import_*.xlsx
+
+# 根目录一次性调试/运维脚本（本地保留，不入库；_run_sql.js 含数据库明文口令）
+/_run_sql.js
+/_dup.js
+/fix_headers.js
