@@ -10,7 +10,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "jest --detectOpenHandles",
-    "test:coverage": "jest --coverage --detectOpenHandles"
+    "test:coverage": "jest --coverage --detectOpenHandles",
+    "test:api": "node tests/v2_api_test.mjs",
+    "test:api:v1": "node tests/api_test.js"
   },
   "jest": {
     "testEnvironment": "node",
