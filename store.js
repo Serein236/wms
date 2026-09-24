@@ -106,6 +106,12 @@ app.get(/^\/(?!api|api-docs).*/, (req, res, next) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
+    // CSRF 校验失败：csrf-csrf 抛出的是带 status=403 / code=EBADCSRFTOKEN 的 ForbiddenError。
+    // 必须原样透传 403，否则会被下面的兜底吞成 500，前端 src/api/http.js 里
+    // 「403 时刷新 token 重试一次」的兜底会彻底失效。
+    if (err && (err.code === 'EBADCSRFTOKEN' || err.status === 403 || err.statusCode === 403)) {
+        return res.status(403).json({ success: false, message: 'CSRF 校验失败，请刷新页面后重试' });
+    }
     console.error('Unhandled error:', err);
     res.status(500).json({ success: false, message: '服务器内部错误' });
 });

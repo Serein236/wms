@@ -33,7 +33,7 @@ npm start  # http://localhost:3000
 - **前端**: Vue 3 SPA（Composition API + `<script setup>`）+ Vite 8 构建，源码在 `src/`。技术栈：Vue Router（全部路由懒加载）、Pinia（auth/settings store）、Bootstrap 5（npm 引入 + CSS 变量定制主题）、Chart.js 与 xlsx 按需动态 import。`public/` 目录为旧版多页前端，已不再被 Express 服务，仅作参考保留。
 - **后端服务 SPA**: `store.js` 通过 `express.static('dist')` 提供构建产物，SPA History Fallback 正则为 `/^\/(?!api|api-docs).*/`（排除 API 与 Swagger 路径，静态资源后缀直接 next）
 - **环境变量**: 前端页脚/备案配置在 `.env`（已 gitignore），通过 `import.meta.env.VITE_*` 读取（替代旧的 `public/js/config.js`）
-- **CSRF**: 已启用（doubleCsrf，`store.js` 对 `/api` 挂载；token 走 `GET /api/auth/csrf-token`，前端 `src/api/http.js` 非 GET 请求自动携带 `X-CSRF-Token` 并在 403 时刷新重试一次；登录/登出/current-user 等在 `middleware/csrf.js` ignoredPaths 豁免）。本地跑 `tests/` API 回归脚本必须设 `CSRF_DISABLED=true` 再启动服务，否则写请求全部 403。
+- **CSRF**: 已启用（doubleCsrf，`store.js` 对 `/api` 挂载；token 走 `GET /api/auth/csrf-token`，前端 `src/api/http.js` 非 GET 请求自动携带 `X-CSRF-Token` 并在 403 时刷新重试一次；登录/登出/current-user 等在 `middleware/csrf.js` 的 `skipCsrfProtection` 中按 `req.originalUrl` 豁免）。⚠️ 不要改用 `ignoredPaths`——csrf-csrf 4.x 不支持该选项，会被静默忽略，导致登录接口必然 403/500。本地跑 `tests/` API 回归脚本必须设 `CSRF_DISABLED=true` 再启动服务，否则写请求全部 403。
 - **API 文档**: Swagger UI 在 `/api-docs`
 - **日志**: 写入 `logs/` 目录（由 `utils/logger.js` 自动创建）
 - **备份**: MySQL 导出文件存储在 `backup/`（已 gitignore）
@@ -44,7 +44,7 @@ npm start  # http://localhost:3000
 config/          数据库配置（gitignore）、Session 配置
 controllers/     路由处理器（认证、商品、库存、供应商、客户、仪表板、批量、盘点、导入、备份、设置）
 dist/            前端构建产物（gitignore，npm run build 生成）
-middleware/      认证中间件（requireLogin、requireAdmin）、CSRF（已禁用）、限流
+middleware/      认证中间件（requireLogin、requireAdmin）、CSRF（已启用）、限流
 models/          数据库查询层（Product、User、InRecord、OutRecord、Stock、StockMethod、Supplier）
 public/          旧版多页前端（HTML + 原生 JS，已废弃，Express 不再服务，仅参考保留）
 routes/          Express 路由 → 控制器

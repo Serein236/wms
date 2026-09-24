@@ -90,6 +90,13 @@ router.post('/logout', authController.logout);
  *                   type: string
  */
 router.get('/csrf-token', (req, res) => {
+    // csrf-csrf 的令牌与会话标识绑定（getSessionIdentifier -> req.session.id），
+    // 而 express-session 在 saveUninitialized:false 下不会为「未被修改」的会话下发
+    // connect.sid。此时同一个客户端两次请求会拿到不同的 session id，令牌永远校验不过。
+    // 因此这里显式标记会话，促使其落盘并下发会话 cookie。
+    if (req.session) {
+        req.session.csrfInitialized = true;
+    }
     // csrf-csrf 的 generateCsrfToken(req, res) 内部会调用 res.cookie()，必须传入 res
     const token = generateToken(req, res);
     res.json({ csrfToken: token });
