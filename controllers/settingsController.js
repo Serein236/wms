@@ -4,6 +4,24 @@ const InventoryService = require('../services/InventoryService');
 const logger = require('../utils/logger');
 
 const settingsController = {
+    /**
+     * 公开站点信息（无需登录）：页脚公司名 / 备案号 / 备案链接
+     * 仅供登录页与页脚展示使用，不暴露导出/备份等内部配置
+     */
+    async getPublicSettings(req, res) {
+        try {
+            const settings = await SettingsService.getSettings() || {};
+            res.json({
+                companyName: settings.companyName || '',
+                icp: settings.icp || '',
+                icpUrl: settings.icpUrl || ''
+            });
+        } catch (error) {
+            console.error('获取公开设置错误:', error);
+            res.status(500).json({ success: false, message: '获取设置失败' });
+        }
+    },
+
     async getSettings(req, res) {
         try {
             const settings = await SettingsService.getSettings();
@@ -32,8 +50,8 @@ const settingsController = {
             if (!settings || typeof settings !== 'object') {
                 return res.status(400).json({ success: false, message: '无效的设置数据' });
             }
-            // 白名单：导出/自动备份配置 + 公司信息
-            const allowedKeys = ['export', 'autoBackup', 'companyName', 'phone', 'address', 'icp'];
+            // 白名单：导出/自动备份配置 + 公司信息（含备案号与备案链接）
+            const allowedKeys = ['export', 'autoBackup', 'companyName', 'phone', 'address', 'icp', 'icpUrl'];
             const sanitized = {};
             for (const key of allowedKeys) {
                 if (settings[key] !== undefined) {

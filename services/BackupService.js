@@ -8,8 +8,7 @@ const logger = require('../utils/logger');
 // 导入数据库配置获取连接信息
 let dbConfigObj = null;
 try {
-    const dbModule = require('../config/databases');
-    dbConfigObj = dbModule.dbConfig || null;
+    dbConfigObj = require('../config/config').database || null;
 } catch (e) {
     console.error('加载数据库配置失败:', e);
 }

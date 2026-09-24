@@ -7,7 +7,8 @@ const cookieParser = require('cookie-parser');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 
-const sessionConfig = require('./config/session');
+const config = require('./config/config');
+const settingsController = require('./controllers/settingsController');
 const { requireLogin, checkLoggedIn } = require('./middleware/auth');
 const { doubleCsrf } = require('./middleware/csrf');
 const authRoutes = require('./routes/authRoutes');
@@ -22,7 +23,7 @@ const stocktakingRoutes = require('./routes/stocktakingRoutes');
 const logger = require('./utils/logger');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = config.port;
 
 // 信任反向代理（nginx等），使 express-rate-limit 正确识别客户端IP
 app.set('trust proxy', 1);
@@ -56,12 +57,12 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
 // Session BEFORE static (critical!)
-app.use(session(sessionConfig));
+app.use(session(config.session));
 app.use(cookieParser());
 
-// CSRF 保护（默认启用，覆盖所有 /api 写请求；登录/登出等在 middleware/csrf.js ignoredPaths 中豁免）
-// 本地跑 tests/ 下 API 回归脚本时可设 CSRF_DISABLED=true 临时关闭
-if (process.env.CSRF_DISABLED !== 'true') {
+// CSRF 保护（默认启用，覆盖所有 /api 写请求；登录/登出等在 middleware/csrf.js 豁免列表中）
+// 本地跑 tests/ 下 API 回归脚本时可在 config/config.js 设 csrfDisabled=true 临时关闭
+if (!config.csrfDisabled) {
     app.use('/api', (req, res, next) => {
         doubleCsrf(req, res, next);
     });
@@ -81,6 +82,9 @@ app.use(express.static(path.join(__dirname, 'dist')));
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
+
+// 公开站点信息（页脚公司名/备案号，登录页也可访问，无需认证）
+app.get('/api/settings/public', settingsController.getPublicSettings);
 
 // API routes
 app.use('/api/auth', authRoutes);

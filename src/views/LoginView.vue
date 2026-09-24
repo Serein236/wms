@@ -60,26 +60,27 @@
     </div>
 
     <footer class="login-footer">
-      <span>&copy; 2026 {{ config.companyName }}</span>
-      <template v-if="config.icp">
+      <span>&copy; 2026 {{ settingsStore.companyName }}</span>
+      <template v-if="settingsStore.icp">
         <span class="mx-2">|</span>
-        <a :href="config.icpUrl || 'https://beian.miit.gov.cn/'" target="_blank">{{ config.icp }}</a>
+        <a :href="settingsStore.icpUrl || 'https://beian.miit.gov.cn/'" target="_blank">{{ settingsStore.icp }}</a>
       </template>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 import { useToast } from '@/composables/useToast'
 import { authApi } from '@/api/auth'
-import { config } from '@/utils/config'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const settingsStore = useSettingsStore()
 const toast = useToast()
 
 const username = ref('')
@@ -87,6 +88,11 @@ const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
+
+// 登录页页脚公司信息/备案号来自公开设置接口（数据库驱动，设置页保存后生效）
+onMounted(() => {
+  settingsStore.loadPublic()
+})
 
 async function handleLogin() {
   if (!username.value || !password.value) return

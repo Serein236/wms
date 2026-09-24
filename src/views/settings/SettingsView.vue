@@ -39,7 +39,11 @@
           </div>
           <div class="col-md-6">
             <label class="form-label">备案号</label>
-            <input v-model="form.icp" type="text" class="form-control">
+            <input v-model="form.icp" type="text" class="form-control" placeholder="如：鄂ICP备xxxxxxxx号">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">备案链接</label>
+            <input v-model="form.icpUrl" type="text" class="form-control" placeholder="如：https://beian.miit.gov.cn/">
           </div>
         </div>
         <button class="btn btn-primary mt-3" @click="saveCompany">保存</button>
@@ -205,7 +209,8 @@ const form = ref({
   companyName: '',
   phone: '',
   address: '',
-  icp: ''
+  icp: '',
+  icpUrl: ''
 })
 
 // 密码修改

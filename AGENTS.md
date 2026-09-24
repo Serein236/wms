@@ -4,8 +4,8 @@
 
 ```bash
 npm install
-# 复制并配置数据库凭据：
-#   config/databases.example.js -> config/databases.js
+# 复制并配置全站唯一配置文件：
+#   config/config.example.js -> config/config.js（数据库/会话/CSRF 密钥都在这一个文件）
 # 使用以下脚本初始化数据库：sql/store.sql
 # 前端构建（生成 dist/，Express 从该目录提供 SPA）：
 npm run build
@@ -22,17 +22,17 @@ npm start  # http://localhost:3000
 - `npm run test:api` — 运行 v2 API 回归（`tests/v2_api_test.mjs`，77 例，对运行中的 :3000 发真实 HTTP）；`npm run test:api:v1` 运行 v1 全量（`tests/api_test.js`，108 例）
 - `node scripts/sync_suppliers.js` — 从出入库记录同步供应商和客户到数据库
 
-> 跑 API 回归前置：MySQL 已导入 `sql/store.sql`（建议先还原干净基线）、`config/databases.js` 已配置、`npm start` 在 :3000 运行、`admin/admin` 可登录。脚本在脏库上非幂等，重跑前先还原基线。
+> 跑 API 回归前置：MySQL 已导入 `sql/store.sql`（建议先还原干净基线）、`config/config.js` 已配置、`npm start` 在 :3000 运行、`admin/admin` 可登录。脚本在脏库上非幂等，重跑前先还原基线。
 
 ## 架构
 
 - **入口文件**: `store.js`
 - **分层 MVC**: `routes/` → `controllers/` → `services/` → `models/` → `utils/dbUtils.js`
-- **数据库**: MySQL 8.0+，通过 `mysql2` 连接池配置在 `config/databases.js`（已 gitignore）。所有查询都通过 `dbUtils` 包装 `promisePool` 执行。
-- **认证**: 基于 Session（`express-session`），session 密钥固定为 `warehouse-system-session-secret-2026`。`middleware/auth.js` 导出 `requireLogin`、`checkLoggedIn`、`requireAdmin`。角色仅 `admin` / `user`；`GET /api/auth/current-user` 返回 `{loggedIn, username, role}`（前端路由守卫依赖 role，勿删该字段）。写操作与管理列表必须 `requireAdmin`；前端在 `src/router/index.js` 守卫、`AppLayout.vue` 菜单、各页面按钮三处做角色裁剪，改权限时前后端同时收口。登录失败返回 HTTP 200 + `{success:false}`（非 401），登录限流 15 分钟 10 次/IP。
-- **前端**: Vue 3 SPA（Composition API + `<script setup>`）+ Vite 8 构建，源码在 `src/`。技术栈：Vue Router（全部路由懒加载）、Pinia（auth/settings store）、Bootstrap 5（npm 引入 + CSS 变量定制主题）、Chart.js 与 xlsx 按需动态 import。`public/` 目录为旧版多页前端，已不再被 Express 服务，仅作参考保留。
+- **配置**: 全站唯一配置文件 `config/config.js`（已 gitignore，从 `config/config.example.js` 复制）集中管理端口、数据库（mysql2 连接池，在 `utils/dbUtils.js` 创建）、会话与 CSRF 密钥；支持同名环境变量覆盖。所有查询都通过 `dbUtils` 包装 `promisePool` 执行。
+- **认证**: 基于 Session（`express-session`），session 密钥来自 `config/config.js` 的 `sessionSecret`。`middleware/auth.js` 导出 `requireLogin`、`checkLoggedIn`、`requireAdmin`。角色仅 `admin` / `user`；`GET /api/auth/current-user` 返回 `{loggedIn, username, role}`（前端路由守卫依赖 role，勿删该字段）。写操作与管理列表必须 `requireAdmin`；前端在 `src/router/index.js` 守卫、`AppLayout.vue` 菜单、各页面按钮三处做角色裁剪，改权限时前后端同时收口。登录失败返回 HTTP 200 + `{success:false}`（非 401），登录限流 15 分钟 10 次/IP。
+- **前端**: Vue 3 SPA（Composition API + `<script setup>`）+ Vite 8 构建，源码在 `src/`。技术栈：Vue Router（全部路由懒加载）、Pinia（auth/settings store）、Bootstrap 5（npm 引入 + CSS 变量定制主题）、Chart.js 与 xlsx 按需动态 import。旧版多页前端 `public/` 已整体删除，前端只有 `src/` Vue SPA。
 - **后端服务 SPA**: `store.js` 通过 `express.static('dist')` 提供构建产物，SPA History Fallback 正则为 `/^\/(?!api|api-docs).*/`（排除 API 与 Swagger 路径，静态资源后缀直接 next）
-- **环境变量**: 前端页脚/备案配置在 `.env`（已 gitignore），通过 `import.meta.env.VITE_*` 读取（替代旧的 `public/js/config.js`）
+- **页脚/备案配置**: 存数据库 `settings` 表，设置页保存后实时生效；登录页走公开接口 `GET /api/settings/public`（无需认证），页内走 `GET /api/settings`（需登录）。不再使用 `.env` / VITE_* 变量
 - **CSRF**: 已启用（doubleCsrf，`store.js` 对 `/api` 挂载；token 走 `GET /api/auth/csrf-token`，前端 `src/api/http.js` 非 GET 请求自动携带 `X-CSRF-Token` 并在 403 时刷新重试一次；登录/登出/current-user 等在 `middleware/csrf.js` 的 `skipCsrfProtection` 中按 `req.originalUrl` 豁免）。⚠️ 不要改用 `ignoredPaths`——csrf-csrf 4.x 不支持该选项，会被静默忽略，导致登录接口必然 403/500。本地跑 `tests/` API 回归脚本必须设 `CSRF_DISABLED=true` 再启动服务，否则写请求全部 403。
 - **API 文档**: Swagger UI 在 `/api-docs`
 - **日志**: 写入 `logs/` 目录（由 `utils/logger.js` 自动创建）
@@ -41,12 +41,11 @@ npm start  # http://localhost:3000
 ## 项目结构
 
 ```
-config/          数据库配置（gitignore）、Session 配置
+config/          全站唯一配置 config.js（gitignore）+ 模板 config.example.js
 controllers/     路由处理器（认证、商品、库存、供应商、客户、仪表板、批量、盘点、导入、备份、设置）
 dist/            前端构建产物（gitignore，npm run build 生成）
 middleware/      认证中间件（requireLogin、requireAdmin）、CSRF（已启用）、限流
 models/          数据库查询层（Product、User、InRecord、OutRecord、Stock、StockMethod、Supplier）
-public/          旧版多页前端（HTML + 原生 JS，已废弃，Express 不再服务，仅参考保留）
 routes/          Express 路由 → 控制器
 services/        业务逻辑（InventoryService、BackupService、SettingsService）
 src/             Vue 3 SPA 源码
@@ -62,7 +61,7 @@ scripts/         工具脚本（sync_suppliers.js 供应商/客户同步）
 utils/           工具函数（dbUtils 查询封装、pagination 分页、dataUtils、logger）
 tests/           API 集成/回归脚本（api_test.js v1、v2_api_test.mjs v2），随仓库提交
 runtime/         测试运行目录（服务日志、临时 xlsx、结果 JSON、DB 转储，gitignore，勿提交）
-vite.config.mjs  Vite 配置（必须是 .mjs，因后端为 CommonJS；publicDir: false 防止旧 public/ 混入 dist/）
+vite.config.mjs  Vite 配置（必须是 .mjs，因后端为 CommonJS）
 __tests__/       Jest 单元测试
 ```
 
@@ -100,12 +99,10 @@ __tests__/       Jest 单元测试
 
 ## 注意事项
 
-- `config/databases.js` 已 gitignore — 运行前务必从 `config/databases.example.js` 复制并配置
-- `.env` 已 gitignore（前端页脚/备案配置 VITE_COMPANY_NAME/VITE_ICP/VITE_ICP_URL），本地需手动创建
+- `config/config.js` 已 gitignore — 运行前务必从 `config/config.example.js` 复制并配置（数据库/会话/CSRF 全在这一个文件）
 - `config/session.js` 本地开发用固定兜底密钥（避免重启后 session 失效）；生产环境（NODE_ENV=production）必须设置 SESSION_SECRET 环境变量否则拒绝启动，HTTPS 部署时设置 COOKIE_SECURE=true
 - 前端 API 请求统一走 `src/api/`（fetch + `credentials: 'same-origin'`），不要在组件里手写 fetch
 - `vite.config.mjs` 不要改回 `.js`（后端 package.json 无 `"type": "module"`，.js 会按 CJS 解析报 ESM 警告）
-- `publicDir: false` 必须保留 — 否则旧 `public/` 的 21 个 HTML 会复制进 dist/ 与 SPA 冲突
 - 修改前端源码后必须 `npm run build` 才会生效于生产（Express 只服务 `dist/`）；开发时用 `npm run dev`（5173 端口热更新）
 - 新增页面：在 `src/views/` 建组件 → `src/router/index.js` 加懒加载路由 → 侧边栏 `src/components/layout/` 加导航项
 - Chart.js（dashboard）和 xlsx（批量导入）为动态 import 懒加载，不要改为静态导入（会增大主包）

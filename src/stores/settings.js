@@ -11,6 +11,8 @@ export const useSettingsStore = defineStore('settings', {
 
   getters: {
     companyName: (state) => state.settings?.companyName || '仓库管理系统',
+    icp: (state) => state.settings?.icp || '',
+    icpUrl: (state) => state.settings?.icpUrl || '',
     exportConfig: (state) => ({
       companyName: state.settings?.companyName || '',
       address: state.settings?.address || '',
@@ -34,6 +36,23 @@ export const useSettingsStore = defineStore('settings', {
             this.settings = { ...this.settings, ...obj }
             this.saveToStorage()
           }
+        }
+        this.loaded = true
+      } catch (e) {
+        // 加载失败时使用 localStorage 中的缓存
+      }
+    },
+
+    /**
+     * 加载公开站点信息（登录页页脚使用，无需认证）
+     * 仅合并展示字段，不触碰 export/autoBackup 等内部配置
+     */
+    async loadPublic() {
+      try {
+        const data = await inventoryApi.getPublicSettings()
+        if (data && typeof data === 'object') {
+          this.settings = { ...this.settings, ...data }
+          this.saveToStorage()
         }
         this.loaded = true
       } catch (e) {

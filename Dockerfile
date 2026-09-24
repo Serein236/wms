@@ -27,6 +27,9 @@ RUN npm ci --only=production
 # Copy backend source
 COPY store.js swagger.js ./
 COPY config ./config
+# config.js 已被 .dockerignore 排除（本机凭据不入镜像）；用模板占位，
+# 实际配置值全部由 docker-compose 环境变量注入（DB_* / SESSION_SECRET / CSRF_SECRET）
+RUN cp config/config.example.js config/config.js
 COPY controllers ./controllers
 COPY middleware ./middleware
 COPY models ./models

@@ -1,4 +1,19 @@
-const { promisePool } = require('../config/databases');
+const mysql = require('mysql2');
+const config = require('../config/config');
+
+// 创建数据库连接池（原 config/databases.js 职责，统一收敛到 config/config.js）
+const pool = mysql.createPool(config.database);
+const promisePool = pool.promise();
+
+// 测试连接
+pool.getConnection((err, connection) => {
+    if (err) {
+        console.error('数据库连接失败:', err.message);
+        return;
+    }
+    console.log('数据库连接成功');
+    connection.release();
+});
 
 const dbUtils = {
     /**

@@ -84,6 +84,11 @@ export const inventoryApi = {
     return http.get('/api/settings')
   },
 
+  // 公开站点信息（登录页页脚也用，无需认证）
+  getPublicSettings() {
+    return http.get('/api/settings/public')
+  },
+
   saveSettings(data) {
     return http.post('/api/settings', data)
   },

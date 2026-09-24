@@ -99,10 +99,10 @@
       </main>
 
       <footer class="app-footer">
-        <span>{{ config.companyName }}</span>
-        <template v-if="config.icp">
+        <span>{{ settingsStore.companyName }}</span>
+        <template v-if="settingsStore.icp">
           <span class="mx-2">|</span>
-          <a :href="config.icpUrl || '#'" target="_blank">{{ config.icp }}</a>
+          <a :href="settingsStore.icpUrl || '#'" target="_blank">{{ settingsStore.icp }}</a>
         </template>
       </footer>
     </div>
@@ -110,16 +110,22 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { config } from '@/utils/config'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 
 const route = useRoute()
 const router = useRouter()
 const sidebarOpen = ref(false)
 
 const auth = useAuthStore()
+const settingsStore = useSettingsStore()
+
+// 页脚公司信息/备案号来自数据库设置（设置页保存后实时生效）
+onMounted(() => {
+  if (!settingsStore.loaded) settingsStore.load()
+})
 
 // 菜单定义（adminOnly 仅管理员可见）
 const menuItems = [

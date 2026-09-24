@@ -5,5 +5,5 @@ backup
 *.md
 .mimocode
 .env
-config/databases.js
-public/js/config.js
+.env.*
+config/config.js

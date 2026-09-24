@@ -43,7 +43,7 @@ jest.mock('../middleware/rateLimiter', () => ({
     loginLimiter: (req, res, next) => next()
 }));
 
-const sessionConfig = require('../config/session');
+const sessionConfig = require('../config/config').session;
 const { doubleCsrf } = require('../middleware/csrf');
 const authRoutes = require('../routes/authRoutes');
 

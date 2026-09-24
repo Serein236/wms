@@ -4,8 +4,6 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [vue()],
-  // Don't copy old public/ to dist/ — all assets are bundled by Vite now
-  publicDir: false,
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

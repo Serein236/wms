@@ -3,7 +3,7 @@
     <!-- 欢迎横幅 -->
     <div class="welcome-banner">
       <div class="welcome-text">
-        <h2><i class="bi bi-warehouse me-2"></i>{{ config.companyName }}</h2>
+        <h2><i class="bi bi-warehouse me-2"></i>{{ settingsStore.companyName }}</h2>
         <p>欢迎使用仓库进销存管理系统</p>
       </div>
       <div class="welcome-date">
@@ -62,12 +62,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { config } from '@/utils/config'
 import { dashboardApi } from '@/api/dashboard'
 import { formatDate } from '@/utils/formatters'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 
 const authStore = useAuthStore()
+const settingsStore = useSettingsStore()
 const today = formatDate(new Date(), true)
 const kpi = ref(null)
 

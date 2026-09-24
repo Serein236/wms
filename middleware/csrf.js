@@ -1,9 +1,7 @@
 const { doubleCsrf } = require('csrf-csrf');
+const config = require('../config/config');
 
-// 安全要求：生产环境必须显式配置 CSRF_SECRET，缺失时拒绝启动
-if (process.env.NODE_ENV === 'production' && !process.env.CSRF_SECRET) {
-    throw new Error('[安全] 生产环境必须设置 CSRF_SECRET 环境变量后再启动（middleware/csrf.js）');
-}
+// 生产环境密钥校验已收敛到 config/config.js（统一配置文件）
 
 /**
  * CSRF 豁免路径。
@@ -28,7 +26,7 @@ const CSRF_EXEMPT_PATHS = new Set([
 ]);
 
 const csrfProtection = doubleCsrf({
-    getSecret: () => process.env.CSRF_SECRET || 'wms-local-dev-only-csrf-secret-do-not-use-in-prod',
+    getSecret: () => config.csrfSecret,
     // csrf-csrf 4.x 必需：返回会话唯一标识，用于生成与会话绑定的令牌
     getSessionIdentifier: (req) => (req.session ? req.session.id : ''),
     cookieName: 'csrf-token',

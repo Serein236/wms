@@ -62,12 +62,12 @@ cd wms
 npm install
 ```
 
-3. **配置数据库**
+3. **配置（全站唯一配置文件）**
 ```bash
-# 复制配置文件
-cp config/databases.example.js config/databases.js
+# 复制配置模板
+cp config/config.example.js config/config.js
 
-# 编辑 config/databases.js 修改数据库连接信息
+# 编辑 config/config.js 修改数据库连接、会话与 CSRF 密钥
 ```
 
 4. **初始化数据库**
@@ -112,10 +112,9 @@ npm run dev
 
 ```
 wms/
-├── config/                 # 配置文件
-│   ├── databases.js        # 数据库配置（gitignore）
-│   ├── databases.example.js # 数据库配置模板
-│   └── session.js          # Session 配置
+├── config/                 # 全站唯一配置
+│   ├── config.js           # 配置文件（gitignore，端口/数据库/会话/CSRF）
+│   └── config.example.js   # 配置模板
 ├── controllers/            # 控制器
 │   ├── authController.js   # 认证相关
 │   ├── inventoryController.js  # 出入库管理
@@ -140,7 +139,6 @@ wms/
 │   ├── UserModel.js        # 用户
 │   ├── SupplierModel.js    # 供应商
 │   └── ...
-├── public/                 # 旧版多页前端（已废弃，仅参考保留）
 ├── src/                    # Vue 3 SPA 源码
 │   ├── api/                # API 请求封装
 │   ├── assets/             # 全局样式（设计令牌 + Bootstrap 主题覆盖）
@@ -379,7 +377,7 @@ docker run -p 3000:3000 warehouse-system
 运行 API 集成测试的前置条件：
 
 1. MySQL 已启动并导入 `sql/store.sql`（回归测试建议先还原到干净基线库）。
-2. 已复制 `config/databases.example.js` 为 `config/databases.js` 并配置连接。
+2. 已复制 `config/config.example.js` 为 `config/config.js` 并配置连接。
 3. 后端服务正在运行：`npm start`（默认 `http://localhost:3000`）。
 4. 默认管理员账号 `admin / admin` 可用。
 
