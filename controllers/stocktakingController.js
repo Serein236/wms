@@ -206,7 +206,7 @@ const stocktakingController = {
             });
 
             logger.info('完成盘点', { operator: req.session.username, operatorId: req.session.userId, adjustments: differences.length });
-            res.json({ success: true, message: '盘点完成，库存已调整', adjustedCount: differences.length });
+            res.json({ success: true, message: '盘点完成，库存已调整', data: { adjustedCount: differences.length } });
         } catch (error) {
             console.error('完成盘点错误:', error);
             res.status(500).json({ success: false, message: error.message || '完成盘点失败' });

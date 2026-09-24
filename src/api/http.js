@@ -24,7 +24,7 @@ async function getCsrfToken() {
         if (!r.ok) throw new ApiError(r.status, '获取 CSRF token 失败')
         return r.json()
       })
-      .then((d) => d.csrfToken)
+      .then((d) => d.data?.csrfToken ?? d.csrfToken)
       .catch((e) => {
         csrfTokenPromise = null
         throw e

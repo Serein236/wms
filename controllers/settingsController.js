@@ -12,9 +12,12 @@ const settingsController = {
         try {
             const settings = await SettingsService.getSettings() || {};
             res.json({
-                companyName: settings.companyName || '',
-                icp: settings.icp || '',
-                icpUrl: settings.icpUrl || ''
+                success: true,
+                data: {
+                    companyName: settings.companyName || '',
+                    icp: settings.icp || '',
+                    icpUrl: settings.icpUrl || ''
+                }
             });
         } catch (error) {
             console.error('获取公开设置错误:', error);
@@ -25,7 +28,7 @@ const settingsController = {
     async getSettings(req, res) {
         try {
             const settings = await SettingsService.getSettings();
-            res.json(settings);
+            res.json({ success: true, data: settings });
         } catch (error) {
             console.error('获取设置错误:', error);
             res.status(500).json({ success: false, message: '获取设置失败' });

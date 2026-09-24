@@ -151,7 +151,7 @@ const inventoryController = {
                     recorded_date: row.display_date
                 }));
                 logger.query('查看入库记录', { month, product_id }, username, userId, formattedRows.length);
-                return res.json(formattedRows);
+                return res.json({ success: true, data: formattedRows });
             }
 
             const pagination = parsePagination(req.query);
@@ -185,7 +185,7 @@ const inventoryController = {
                     recorded_date: row.display_date
                 }));
                 logger.query('查看出库记录', { month, product_id }, username, userId, formattedRows.length);
-                return res.json(formattedRows);
+                return res.json({ success: true, data: formattedRows });
             }
 
             const pagination = parsePagination(req.query);
@@ -213,7 +213,7 @@ const inventoryController = {
             if (!req.query.page && !req.query.pageSize) {
                 const stock = await InventoryService.getStockReport();
                 logger.query('查看库存报表', {}, username, userId, stock.length);
-                return res.json(stock);
+                return res.json({ success: true, data: stock });
             }
 
             const pagination = parsePagination(req.query);
@@ -244,7 +244,7 @@ const inventoryController = {
             
             res.json({
                 success: true,
-                ...result
+                data: result
             });
         } catch (error) {
             console.error('查询错误:', error);
@@ -267,7 +267,7 @@ const inventoryController = {
         try {
             const methods = await StockMethodModel.findByType(type);
             logger.getStockMethods(type, methods, username, userId);
-            res.json(methods.map(method => method.method_name));
+            res.json({ success: true, data: methods.map(method => method.method_name) });
         } catch (error) {
             console.error('获取出入库方式错误:', error);
             logger.error('获取出入库方式失败', { operator: username, operatorId: userId, type, error: error.message });
@@ -288,7 +288,7 @@ const inventoryController = {
                     [productId]
                 );
                 logger.getProductBatches(productId, batches, username, userId);
-                res.json(batches);
+                res.json({ success: true, data: batches });
             } else {
                 let batches = [];
                 if (query && query.length >= 2) {
@@ -303,7 +303,7 @@ const inventoryController = {
                 }
                 
                 logger.query('获取产品批号列表', { query }, username, userId, batches.length);
-                res.json(batches.map(item => ({ batch_number: item.batch_number })));
+                res.json({ success: true, data: batches.map(item => ({ batch_number: item.batch_number })) });
             }
         } catch (error) {
             console.error('获取产品批号列表错误:', error);
@@ -368,7 +368,7 @@ const inventoryController = {
             if (!record) {
                 return res.status(404).json({ success: false, message: '记录不存在' });
             }
-            res.json(record);
+            res.json({ success: true, data: record });
         } catch (error) {
             console.error('获取出库记录错误:', error);
             logger.error('获取出库记录失败', { operator: username, operatorId: req.session?.userId, id, error: error.message });
@@ -384,7 +384,7 @@ const inventoryController = {
         try {
             const suppliers = await SupplierModel.search(query);
             logger.query('获取供应商列表', { query }, username, userId, suppliers.length);
-            res.json(suppliers.map(s => s.name));
+            res.json({ success: true, data: suppliers.map(s => s.name) });
         } catch (error) {
             console.error('获取供应商列表错误:', error);
             logger.error('获取供应商列表失败', { operator: username, operatorId: userId, query, error: error.message });
@@ -411,7 +411,7 @@ const inventoryController = {
             }
             
             logger.query('获取客户列表', { query }, username, userId, customers.length);
-            res.json(customers.map(item => item.destination));
+            res.json({ success: true, data: customers.map(item => item.destination) });
         } catch (error) {
             console.error('获取客户列表错误:', error);
             logger.error('获取客户列表失败', { operator: username, operatorId: userId, query, error: error.message });
@@ -573,7 +573,7 @@ const inventoryController = {
             res.json({
                 success: true,
                 message: '数据清理成功，已自动备份',
-                backupFile: backupResult.fileName
+                data: { backupFile: backupResult.fileName }
             });
         } catch (error) {
             console.error('清理数据错误:', error);
@@ -587,7 +587,7 @@ const inventoryController = {
         const userId = req.session?.userId;
         try {
             const methods = await StockMethodModel.findAll();
-            res.json({ success: true, methods });
+            res.json({ success: true, data: methods });
         } catch (error) {
             console.error('获取出入库方式列表错误:', error);
             logger.error('获取出入库方式列表失败', { operator: username, operatorId: userId, error: error.message });
@@ -622,7 +622,7 @@ const inventoryController = {
                 description: `创建${type === 'in' ? '入库' : '出库'}方式`,
                 extra: { id: result.id, type, method_name }
             });
-            res.json({ success: true, message: '创建成功', method: result });
+            res.json({ success: true, message: '创建成功', data: result });
         } catch (error) {
             console.error('创建出入库方式错误:', error);
             logger.error('创建出入库方式失败', { operator: username, operatorId: userId, type, method_name, error: error.message });
@@ -649,7 +649,7 @@ const inventoryController = {
                 description: `修改${type === 'in' ? '入库' : '出库'}方式`,
                 extra: { id: parseInt(id), type, method_name, oldMethodName: result.oldMethodName }
             });
-            res.json({ success: true, message: '更新成功', method: { id: parseInt(id), type, method_name } });
+            res.json({ success: true, message: '更新成功', data: { id: parseInt(id), type, method_name } });
         } catch (error) {
             console.error('更新出入库方式错误:', error);
             logger.error('更新出入库方式失败', { operator: username, operatorId: userId, id, type, method_name, error: error.message });

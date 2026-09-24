@@ -35,7 +35,7 @@ const { loginLimiter } = require('../middleware/rateLimiter');
  *                 description: 密码
  *     responses:
  *       200:
- *         description: 登录结果（success=true时返回role，success=false时返回message）
+ *         description: 登录结果（统一格式：success=true 时 data.role 为用户角色，success=false 时 message 为错误原因）
  *         content:
  *           application/json:
  *             schema:
@@ -99,7 +99,7 @@ router.get('/csrf-token', (req, res) => {
     }
     // csrf-csrf 的 generateCsrfToken(req, res) 内部会调用 res.cookie()，必须传入 res
     const token = generateToken(req, res);
-    res.json({ csrfToken: token });
+    res.json({ success: true, data: { csrfToken: token } });
 });
 
 /**

@@ -294,8 +294,10 @@ async function getLogs(req, res) {
         
         res.json({
             success: true,
-            logs: paginatedLogs,
-            stats,
+            data: {
+                logs: paginatedLogs,
+                stats
+            },
             pagination: {
                 page: parseInt(page),
                 pageSize: parseInt(pageSize),
@@ -382,7 +384,7 @@ async function getRawLogs(req, res) {
         
         res.json({
             success: true,
-            content: content || '暂无日志内容'
+            data: { content: content || '暂无日志内容' }
         });
         
     } catch (error) {
@@ -418,7 +420,7 @@ async function getLogDates(req, res) {
         
         res.json({
             success: true,
-            dates
+            data: dates
         });
         
     } catch (error) {

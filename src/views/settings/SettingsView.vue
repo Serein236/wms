@@ -324,13 +324,13 @@ async function deleteBackup(b) {
 async function loadStockMethods() {
   try {
     const res = await inventoryApi.getStockMethodsAdmin()
-    // API 返回 {success, methods: [...]}，兼容 res.data 格式
-    stockMethods.value = res?.methods || res?.data || (Array.isArray(res) ? res : [])
+    // 统一格式：{success, data: [...]}
+    stockMethods.value = res?.data || (Array.isArray(res) ? res : [])
   } catch (e) {
     // 降级使用普通接口
     try {
       const res2 = await inventoryApi.getStockMethods()
-      stockMethods.value = Array.isArray(res2) ? res2 : (res2?.data || res2?.methods || [])
+      stockMethods.value = res2?.data || (Array.isArray(res2) ? res2 : [])
     } catch (e2) {
       // 忽略
     }

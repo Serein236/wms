@@ -13,7 +13,8 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async init() {
       try {
-        const data = await authApi.currentUser()
+        const res = await authApi.currentUser()
+        const data = res?.data || res || {}
         this.loggedIn = !!data.loggedIn
         this.user = data.username || null
         this.role = data.role || 'user'
@@ -25,16 +26,16 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async login(username, password) {
-      const data = await authApi.login(username, password)
-      if (data.success === false) {
-        throw new Error(data.message || '登录失败')
+      const res = await authApi.login(username, password)
+      if (res && res.success === false) {
+        throw new Error(res.message || '登录失败')
       }
       // 登录后 session 轮换，旧 CSRF token 失效，强制下次请求重新获取
       resetCsrfToken()
       this.loggedIn = true
       this.user = username
-      this.role = data.role || 'user'
-      return data
+      this.role = res?.data?.role || 'user'
+      return res
     },
 
     async logout() {

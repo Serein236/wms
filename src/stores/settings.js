@@ -24,15 +24,10 @@ export const useSettingsStore = defineStore('settings', {
   actions: {
     async load() {
       try {
-        const data = await inventoryApi.getSettings()
-        if (data) {
-          // 后端返回 key-value 平铺对象；兼容 { settings: ... } 包裹
-          let obj = data
-          if (data.settings) {
-            obj = typeof data.settings === 'string'
-              ? JSON.parse(data.settings)
-              : data.settings
-          }
+        const res = await inventoryApi.getSettings()
+        if (res) {
+          // 统一格式 {success, data: <key-value 平铺对象>}
+          const obj = res?.data || res
           if (obj && typeof obj === 'object') {
             this.settings = { ...this.settings, ...obj }
             this.saveToStorage()
@@ -50,7 +45,8 @@ export const useSettingsStore = defineStore('settings', {
      */
     async loadPublic() {
       try {
-        const data = await inventoryApi.getPublicSettings()
+        const res = await inventoryApi.getPublicSettings()
+        const data = res?.data
         if (data && typeof data === 'object') {
           this.settings = { ...this.settings, ...data }
           this.saveToStorage()

@@ -287,8 +287,9 @@ async function viewDetail(item) {
   detailTab.value = 'batch'
   detail.value = null
   try {
-    const data = await inventoryApi.getStockByProduct(item.product_id)
-    detail.value = data
+    const res = await inventoryApi.getStockByProduct(item.product_id)
+    // 统一格式：{success, data: {product?, inRecords, outRecords, ...}}
+    detail.value = res?.data || res
   } catch (e) {
     toast.error('加载出入库历史失败: ' + e.message)
     detailVisible.value = false

@@ -29,7 +29,7 @@ npm start  # http://localhost:3000
 - **入口文件**: `store.js`
 - **分层 MVC**: `routes/` → `controllers/` → `services/` → `models/` → `utils/dbUtils.js`
 - **配置**: 全站唯一配置文件 `config/config.js`（已 gitignore，从 `config/config.example.js` 复制）集中管理端口、数据库（mysql2 连接池，在 `utils/dbUtils.js` 创建）、会话与 CSRF 密钥；支持同名环境变量覆盖。所有查询都通过 `dbUtils` 包装 `promisePool` 执行。
-- **认证**: 基于 Session（`express-session`），session 密钥来自 `config/config.js` 的 `sessionSecret`。`middleware/auth.js` 导出 `requireLogin`、`checkLoggedIn`、`requireAdmin`。角色仅 `admin` / `user`；`GET /api/auth/current-user` 返回 `{loggedIn, username, role}`（前端路由守卫依赖 role，勿删该字段）。写操作与管理列表必须 `requireAdmin`；前端在 `src/router/index.js` 守卫、`AppLayout.vue` 菜单、各页面按钮三处做角色裁剪，改权限时前后端同时收口。登录失败返回 HTTP 200 + `{success:false}`（非 401），登录限流 15 分钟 10 次/IP。
+- **认证**: 基于 Session（`express-session`），session 密钥来自 `config/config.js` 的 `sessionSecret`。`middleware/auth.js` 导出 `requireLogin`、`checkLoggedIn`、`requireAdmin`。角色仅 `admin` / `user`；`GET /api/auth/current-user` 返回 `{success, data: {loggedIn, username, role}}`（前端路由守卫依赖 data.role，勿删该字段）。写操作与管理列表必须 `requireAdmin`；前端在 `src/router/index.js` 守卫、`AppLayout.vue` 菜单、各页面按钮三处做角色裁剪，改权限时前后端同时收口。登录失败返回 HTTP 200 + `{success:false}`（非 401），登录限流 15 分钟 10 次/IP。
 - **前端**: Vue 3 SPA（Composition API + `<script setup>`）+ Vite 8 构建，源码在 `src/`。技术栈：Vue Router（全部路由懒加载）、Pinia（auth/settings store）、Bootstrap 5（npm 引入 + CSS 变量定制主题）、Chart.js 与 xlsx 按需动态 import。旧版多页前端 `public/` 已整体删除，前端只有 `src/` Vue SPA。
 - **后端服务 SPA**: `store.js` 通过 `express.static('dist')` 提供构建产物，SPA History Fallback 正则为 `/^\/(?!api|api-docs).*/`（排除 API 与 Swagger 路径，静态资源后缀直接 next）
 - **页脚/备案配置**: 存数据库 `settings` 表，设置页保存后实时生效；登录页走公开接口 `GET /api/settings/public`（无需认证），页内走 `GET /api/settings`（需登录）。不再使用 `.env` / VITE_* 变量
@@ -95,7 +95,7 @@ __tests__/       Jest 单元测试
 - 日期序列化：`/api/query/:productId` 的 `batchStock.production_date/expiration_date` 与 `/api/backups` 的 `created_at` 是 JS Date → JSON 的 ISO 串，前端必须用 `@/utils/formatters` 的 `formatDate()` 渲染，不可直接 `{{ }}` 输出 ISO。
 - 首页/看板 KPI：`dashboardController.getKPI` 返回含 `todayIn`/`todayOut`/`lowStock`，`HomeView.vue` 依赖这三个字段。
 - 供应商：`SupplierModel.searchAll` 含禁用项（管理员管理列表/分页用），`search` 仅返回启用项（入库单联想、`GET /suppliers/search` 用）；客户无启用/禁用概念。
-- 批量出入库 `/api/batch/in|out`：item 的 `unit_price` 缺省按 0、`total_amount` 缺省按 数量×单价，不可把 null 写入 NOT NULL 列；返回 `{successCount, failCount, errors}`，前端需如实展示部分成功。
+- 批量出入库 `/api/batch/in|out`：item 的 `unit_price` 缺省按 0、`total_amount` 缺省按 数量×单价，不可把 null 写入 NOT NULL 列；返回 `{success, data: {successCount, failCount, errors}}`，前端需如实展示部分成功。
 
 ## 注意事项
 
@@ -114,6 +114,6 @@ __tests__/       Jest 单元测试
 - 中文编码：所有源码文件必须保存为 UTF-8 编码
 - 供应商和客户数据分别存储在 `suppliers` 和 `customers` 表中，不要混用
 - `inventoryRoutes.js` 中已移除旧的 `/customers` 路由，客户管理使用独立的 `customerRoutes.js`
-- 后端 API 返回格式不统一（有的是裸数组，有的是 `{success, data, pagination}`），`src/api/` 已做兼容层，新接口封装时注意两种格式都要处理
+- 后端 API 返回格式已统一：成功 `{ success: true, data: <业务数据>, message?: string, pagination?: {page,pageSize,total,totalPages} }`，失败 `{ success: false, message }`。所有业务数据（数组/对象/计数）一律放 `data`，不要在顶层挂业务字段；新增接口必须遵守。前端 `src/api/http.js` 的 `extractData()` 与各视图的 `res?.data || res` 兼容读取均已适配
 - 前端日期、金额展示统一走 `@/utils/formatters`（`formatDate(date, withTime=false)` 能处理 ISO 与 9999 远期批次、`formatMoney`），不要在组件里手写 toISOString/toFixed
 - 测试脚本只放 `tests/`（随仓库提交）；测试结果 `*_results.json`、临时 xlsx、服务日志、数据库基线转储 `backup_pre_*.sql` 等放 `runtime/` 或根目录并已 gitignore，禁止提交；改后端先 `node --check` 再重启，改前端必须 `npm run build`

@@ -80,7 +80,7 @@ const batchController = {
         }
 
         logger.info('批量入库', { operator: username, operatorId: created_by, successCount, failCount });
-        res.json({ success: true, successCount, failCount, errors: errors.slice(0, 10) });
+        res.json({ success: true, data: { successCount, failCount, errors: errors.slice(0, 10) } });
     },
 
     async batchOutStock(req, res) {
@@ -136,7 +136,7 @@ const batchController = {
         }
 
         logger.info('批量出库', { operator: username, operatorId: created_by, successCount, failCount });
-        res.json({ success: true, successCount, failCount, errors: errors.slice(0, 10) });
+        res.json({ success: true, data: { successCount, failCount, errors: errors.slice(0, 10) } });
     },
 
     async getTemplate(req, res) {

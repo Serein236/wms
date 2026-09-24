@@ -102,7 +102,7 @@ const supplierController = {
     async toggleActive(req, res) {
         try {
             const newStatus = await SupplierModel.toggleActive(req.params.id);
-            res.json({ success: true, message: newStatus ? '已启用' : '已禁用', isActive: newStatus });
+            res.json({ success: true, message: newStatus ? '已启用' : '已禁用', data: { isActive: newStatus } });
         } catch (error) {
             console.error('切换供应商状态错误:', error);
             res.status(500).json({ success: false, message: '操作失败' });

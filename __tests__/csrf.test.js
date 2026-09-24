@@ -90,8 +90,8 @@ describe('CSRF 中间件', () => {
         const res = await request(app).get('/api/auth/csrf-token');
 
         expect(res.status).toBe(200);
-        expect(typeof res.body.csrfToken).toBe('string');
-        expect(res.body.csrfToken.length).toBeGreaterThan(0);
+        expect(typeof res.body.data?.csrfToken).toBe('string');
+        expect(res.body.data.csrfToken.length).toBeGreaterThan(0);
 
         const setCookie = (res.headers['set-cookie'] || []).join(';');
         expect(setCookie).toContain('csrf-token=');
@@ -140,7 +140,7 @@ describe('CSRF 中间件', () => {
         const res = await request(app)
             .post('/api/probe-write')
             .set('Cookie', cookies)
-            .set('X-CSRF-Token', tokRes.body.csrfToken)
+            .set('X-CSRF-Token', tokRes.body.data?.csrfToken ?? tokRes.body.csrfToken)
             .send({});
 
         expect(res.status).toBe(200);
@@ -155,7 +155,7 @@ describe('CSRF 中间件', () => {
             .post('/api/probe-write')
             // 用 A 的令牌 + B 的会话 cookie
             .set('Cookie', cookieHeader(otherSession))
-            .set('X-CSRF-Token', tokRes.body.csrfToken)
+            .set('X-CSRF-Token', tokRes.body.data?.csrfToken ?? tokRes.body.csrfToken)
             .send({});
 
         expect(res.status).toBe(403);

@@ -157,7 +157,7 @@ async function loadUsers() {
   loading.value = true
   try {
     const res = await authApi.getUsers()
-    users.value = Array.isArray(res?.users) ? res.users : (Array.isArray(res) ? res : [])
+    users.value = res?.data || (Array.isArray(res) ? res : [])
   } catch (e) {
     toast.error('加载用户失败: ' + e.message)
   } finally {

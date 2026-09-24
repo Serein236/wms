@@ -9,7 +9,7 @@ const backupController = {
         try {
             const result = await BackupService.createBackup(username, 'manual');
             logger.backupCreated(result.fileName, result.fileSize, 'manual', username, userId);
-            res.json(result);
+            res.json({ success: true, data: { fileName: result.fileName, fileSize: result.fileSize } });
         } catch (error) {
             console.error('创建备份错误:', error);
             logger.error('创建备份失败', { operator: username, operatorId: userId, error: error.message });
@@ -22,7 +22,7 @@ const backupController = {
         const userId = req.session?.userId;
         try {
             const backups = await BackupService.getBackupList();
-            res.json(backups);
+            res.json({ success: true, data: backups });
         } catch (error) {
             console.error('获取备份列表错误:', error);
             logger.error('获取备份列表失败', { operator: username, operatorId: userId, error: error.message });

@@ -273,9 +273,11 @@ async function submitBatch() {
   submitting.value = true
   try {
     const res = mode.value === 'in' ? await batchApi.batchIn(payload) : await batchApi.batchOut(payload)
-    const successCount = Number(res?.successCount ?? 0)
-    const failCount = Number(res?.failCount ?? 0)
-    const errors = Array.isArray(res?.errors) ? res.errors : []
+    // 统一格式：{success, data: {successCount, failCount, errors}}
+    const result = res?.data || {}
+    const successCount = Number(result.successCount ?? 0)
+    const failCount = Number(result.failCount ?? 0)
+    const errors = Array.isArray(result.errors) ? result.errors : []
     if (failCount === 0) {
       toast.success(`批量${mode.value === 'in' ? '入库' : '出库'}成功，共 ${successCount} 条`)
       rows.value = [createEmptyRow(), createEmptyRow(), createEmptyRow()]

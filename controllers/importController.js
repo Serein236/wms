@@ -56,7 +56,7 @@ const importController = {
             }
 
             logger.info('批量导入商品', { operator: req.session.username, operatorId: req.session.userId, imported, skipped, errorCount: errors.length });
-            res.json({ success: true, imported, skipped, errors: errors.slice(0, 10), total: data.length });
+            res.json({ success: true, data: { imported, skipped, errors: errors.slice(0, 10), total: data.length } });
         } catch (error) {
             console.error('导入商品错误:', error);
             res.status(500).json({ success: false, message: '导入失败' });

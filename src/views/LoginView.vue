@@ -107,7 +107,7 @@ async function handleLogin() {
     if (auth.role === 'admin') {
       try {
         const data = await authApi.checkDefaultAdmin()
-        if (data.isDefault) {
+        if (data?.data?.isDefault) {
           toast.warning('admin 仍在使用默认密码，请尽快到「设置」中修改')
         }
       } catch (e) {

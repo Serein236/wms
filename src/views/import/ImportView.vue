@@ -135,10 +135,12 @@ async function startImport() {
     formData.append('file', selectedFile.value)
 
     const res = await importApi.importProducts(formData)
-    const imported = Number(res?.imported ?? 0)
-    const skipped = Number(res?.skipped ?? 0)
-    const total = Number(res?.total ?? imported + skipped)
-    const errors = Array.isArray(res?.errors) ? res.errors : []
+    // 统一格式：{success, data: {imported, skipped, errors, total}}
+    const result = res?.data || {}
+    const imported = Number(result.imported ?? 0)
+    const skipped = Number(result.skipped ?? 0)
+    const total = Number(result.total ?? imported + skipped)
+    const errors = Array.isArray(result.errors) ? result.errors : []
 
     let status = 'success'
     let message = `导入完成，成功 ${imported} 条`

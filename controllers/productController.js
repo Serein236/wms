@@ -32,7 +32,7 @@ const productController = {
             if (!req.query.page && !req.query.pageSize) {
                 const products = await ProductModel.findAll();
                 logger.query('获取商品列表', {}, username, userId, products.length);
-                return res.json(products);
+                return res.json({ success: true, data: products });
             }
 
             const pagination = parsePagination(req.query);
@@ -140,7 +140,7 @@ const productController = {
             });
             
             logger.productCreated(product.id, name, product.product_code || 'N/A', username, userId, { spec, unit, barcode, manufacturer });
-            res.json({ success: true, id: product.id });
+            res.json({ success: true, data: { id: product.id } });
         } catch (error) {
             console.error('添加商品错误:', error);
             logger.error('添加商品失败', { operator: username, operatorId: userId, name, spec, error: error.message });

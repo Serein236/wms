@@ -75,11 +75,11 @@ const cases = [
   // ============ A. 认证 / 会话 / 权限 ============
   t('V2-API-AUTH-01', '认证', '获取 CSRF 令牌（BUG-1 回归）', '200 且返回 csrfToken', async () => {
     const r = await request('anon', 'GET', '/api/auth/csrf-token')
-    return ok(r.status === 200 && bodyOf(r).csrfToken, `status=${r.status}, hasToken=${!!bodyOf(r).csrfToken}`)
+    return ok(r.status === 200 && bodyOf(r).data?.csrfToken, `status=${r.status}, hasToken=${!!bodyOf(r).data?.csrfToken}`)
   }),
   t('V2-API-AUTH-02', '认证', 'admin 正确密码登录', 'success=true, role=admin', async () => {
     const r = await request('admin', 'POST', '/api/auth/login', { username: 'admin', password: 'admin' })
-    return ok(bodyOf(r).success === true && bodyOf(r).role === 'admin', bodyOf(r))
+    return ok(bodyOf(r).success === true && bodyOf(r).data?.role === 'admin', bodyOf(r))
   }),
   t('V2-API-AUTH-03', '认证', '错误密码登录被拒', 'success=false（不进入系统）', async () => {
     const r = await request('anon', 'POST', '/api/auth/login', { username: 'admin', password: 'wrong_pwd' })
@@ -87,7 +87,7 @@ const cases = [
   }),
   t('V2-API-AUTH-04', '认证', 'current-user 返回角色（刷新不丢角色回归）', 'loggedIn=true, role=admin', async () => {
     const r = await request('admin', 'GET', '/api/auth/current-user')
-    return ok(bodyOf(r).loggedIn === true && bodyOf(r).role === 'admin', bodyOf(r))
+    return ok(bodyOf(r).data?.loggedIn === true && bodyOf(r).data?.role === 'admin', bodyOf(r))
   }),
   t('V2-API-AUTH-05', '认证', '未登录访问受保护接口被拒', '401/403 或重定向', async () => {
     const r = await request('anon', 'GET', '/api/products?page=1&pageSize=5')
@@ -100,13 +100,13 @@ const cases = [
       r = { data: { success: true, message: 'already exists' } }
     }
     const list = await request('admin', 'GET', '/api/auth/users')
-    const u = (bodyOf(list).users || []).find(x => x.username === U_NAME)
+    const u = (bodyOf(list).data || []).find(x => x.username === U_NAME)
     userId = u ? u.id : null
     return ok(bodyOf(r).success === true && !!u, `create=${bodyOf(r).message}; userId=${userId}`)
   }),
   t('V2-API-AUTH-07', '认证', '普通用户登录获得 role=user', 'success=true, role=user', async () => {
     const r = await request('user', 'POST', '/api/auth/login', { username: U_NAME, password: U_PASS })
-    return ok(bodyOf(r).success === true && bodyOf(r).role === 'user', bodyOf(r))
+    return ok(bodyOf(r).success === true && bodyOf(r).data?.role === 'user', bodyOf(r))
   }),
   t('V2-API-AUTH-08', '权限隔离', '普通用户禁止新建商品(POST /products)', '403', async () => {
     const r = await request('user', 'POST', '/api/products', { name: 'x', spec: 'y', unit: 'z' })
@@ -152,7 +152,7 @@ const cases = [
   t('V2-API-AUTH-12', '用户管理', '禁用用户后该用户无法登录，再启用恢复', '禁用后 success=false，启用后可登录', async () => {
     if (!userId) return ok(false, '无测试用户 id')
     let r = await request('admin', 'POST', `/api/auth/users/${userId}/toggle`)
-    const disabled = bodyOf(r).isActive === false
+    const disabled = bodyOf(r).data?.isActive === false
     const loginWhileDisabled = await request('anon', 'POST', '/api/auth/login', { username: U_NAME, password: U_PASS })
     const blocked = bodyOf(loginWhileDisabled).success === false && /禁用/.test(bodyOf(loginWhileDisabled).message || '')
     await request('admin', 'POST', `/api/auth/users/${userId}/toggle`)
@@ -163,7 +163,7 @@ const cases = [
   t('V2-API-AUTH-13', '用户管理', '不能禁用/删除当前登录管理员自己', '400', async () => {
     const me = await request('admin', 'GET', '/api/auth/current-user')
     const adminList = await request('admin', 'GET', '/api/auth/users')
-    const admin = (bodyOf(adminList).users || []).find(u => u.username === 'admin')
+    const admin = (bodyOf(adminList).data || []).find(u => u.username === 'admin')
     const r = await request('admin', 'POST', `/api/auth/users/${admin.id}/toggle`)
     return ok(r.status === 400, `status=${r.status} ${bodyOf(r).message || ''}`)
   }),
@@ -172,7 +172,7 @@ const cases = [
     await request('anon', 'POST', '/api/auth/login', { username: U_NAME, password: U_PASS })
     await request('anon', 'POST', '/api/auth/logout')
     const r = await request('anon', 'GET', '/api/auth/current-user')
-    return ok(bodyOf(r).loggedIn === false, bodyOf(r))
+    return ok(bodyOf(r).data?.loggedIn === false, bodyOf(r))
   }),
   t('V2-API-AUTH-15', '认证', '登录限流（代码审查项，不实际触发以免锁定）', '存在 10 次/15 分钟限流中间件', async () => {
     return ok(true, '跳过实际触发（会锁定 admin 15 分钟）；限流中间件已在路由挂载，UI/代码审查确认', 'SKIP-RISK')
@@ -200,7 +200,7 @@ const cases = [
       name: P_NAME, spec: P_SPEC, unit: P_UNIT, barcode: P_BARCODE,
       packing_spec: '1盒', retail_price: 9.9, manufacturer: 'V2厂家', warning_quantity: 10, danger_quantity: 5
     })
-    productId = bodyOf(r).id
+    productId = bodyOf(r).data?.id
     return ok(bodyOf(r).success === true && !!productId, bodyOf(r))
   }),
   t('V2-API-PROD-04', '商品', '新建缺 name/spec/unit 被 400 拦截', '400 且提示必填', async () => {
@@ -237,7 +237,7 @@ const cases = [
   }),
   t('V2-API-PROD-11', '商品', '商品详情聚合（商品+入出库+月度+批次）', '含 product/inRecords/outRecords/monthlyStats/batchStock', async () => {
     const r = await request('admin', 'GET', `/api/query/${productId}`)
-    const d = bodyOf(r)
+    const d = bodyOf(r).data || {}
     const keys = ['product', 'inRecords', 'outRecords', 'monthlyStats', 'batchStock']
     const miss = keys.filter(k => !(k in d))
     return ok(r.status === 200 && miss.length === 0, '缺失字段: ' + (miss.join(',') || '无'))
@@ -246,7 +246,7 @@ const cases = [
   // ============ C. 入库 ============
   t('V2-API-IN-01', '入库', '入库方式 type=in 返回 6 种含盘点入库（BUG-5 回归）', '6 种且含盘点入库', async () => {
     const r = await request('admin', 'GET', '/api/stock-methods?type=in')
-    const arr = Array.isArray(r.data) ? r.data : []
+    const arr = r.data?.data ?? (Array.isArray(r.data) ? r.data : [])
     return ok(arr.length === 6 && arr.includes('盘点入库'), arr.join('/'))
   }),
   t('V2-API-IN-02', '入库', '正常采购入库 100 件（新批号 V2BATCH）', 'success=true', async () => {
@@ -287,7 +287,7 @@ const cases = [
   // ============ D. 出库 ============
   t('V2-API-OUT-01', '出库', '出库方式 type=out 返回 6 种含盘点出库', '6 种且含盘点出库', async () => {
     const r = await request('admin', 'GET', '/api/stock-methods?type=out')
-    const arr = Array.isArray(r.data) ? r.data : []
+    const arr = r.data?.data ?? (Array.isArray(r.data) ? r.data : [])
     return ok(arr.length === 6 && arr.includes('盘点出库'), arr.join('/'))
   }),
   t('V2-API-OUT-02', '出库', '正常销售出库 30 件', 'success=true，库存降到 70', async () => {
@@ -345,8 +345,8 @@ const cases = [
       destination: 'V2回归客户改', batch_number: row.batch_number, recorded_date: (row.recorded_date || TODAY).slice(0, 10), remark: row.remark
     })
     const one = await request('admin', 'GET', `/api/out-records/${row.id}`)
-    return ok(bodyOf(r).success === true && bodyOf(one).destination === 'V2回归客户改',
-      `update=${bodyOf(r).success}, destination=${bodyOf(one).destination}`)
+    return ok(bodyOf(r).success === true && bodyOf(one).data?.destination === 'V2回归客户改',
+      `update=${bodyOf(r).success}, destination=${bodyOf(one).data?.destination}`)
   }),
 
   // ============ E. 库存查询 ============
@@ -365,13 +365,13 @@ const cases = [
   }),
   t('V2-API-STOCK-03', '库存', '单商品批次查询返回 current_stock（非 quantity）', '数组项含 batch_number/current_stock', async () => {
     const r = await request('admin', 'GET', `/api/product-batches/${productId}`)
-    const arr = Array.isArray(r.data) ? r.data : []
+    const arr = r.data?.data ?? (Array.isArray(r.data) ? r.data : [])
     const hit = arr.find(x => x.batch_number === 'V2BATCH')
     return ok(hit && 'current_stock' in hit, JSON.stringify(hit || arr[0] || {}))
   }),
   t('V2-API-STOCK-04', '库存', '商品明细聚合含批次/入库/出库三部分', 'batchStock/inRecords/outRecords 均存在', async () => {
     const r = await request('admin', 'GET', `/api/query/${productId}`)
-    const d = bodyOf(r)
+    const d = bodyOf(r).data || {}
     return ok(Array.isArray(d.batchStock) && Array.isArray(d.inRecords) && Array.isArray(d.outRecords),
       `batch=${d.batchStock?.length}, in=${d.inRecords?.length}, out=${d.outRecords?.length}`)
   }),
@@ -386,8 +386,8 @@ const cases = [
       recorded_date: TODAY, source: S_NAME,
       items: [{ name: P_NAME, stock_method_name: '采购入库', batch_number: 'V2BATCH2', quantity: 20, unit_price: 8, production_date: TODAY, expiration_date: YEAR_LATER }]
     })
-    const d = bodyOf(r)
-    return ok(d.success === true && d.successCount >= 1, `successCount=${d.successCount}, failCount=${d.failCount}, errors=${JSON.stringify(d.errors)}`)
+    const d = bodyOf(r).data || {}
+    return ok(bodyOf(r).success === true && d.successCount >= 1, `successCount=${d.successCount}, failCount=${d.failCount}, errors=${JSON.stringify(d.errors)}`)
   }),
   t('V2-API-BATCH-03', '批量', '商品名不存在计入 failCount 且不影响其他行', 'failCount>=1, successCount>=1', async () => {
     const r = await request('admin', 'POST', '/api/batch/out', {
@@ -397,7 +397,7 @@ const cases = [
         { name: '不存在的商品XYZ', stock_method_name: '销售出库', batch_number: 'B', quantity: 1 }
       ]
     })
-    const d = bodyOf(r)
+    const d = bodyOf(r).data || {}
     return ok(d.successCount >= 1 && d.failCount >= 1 && Array.isArray(d.errors),
       `success=${d.successCount}, fail=${d.failCount}, errors=${JSON.stringify(d.errors).slice(0, 120)}`)
   }),
@@ -433,12 +433,12 @@ const cases = [
   }),
   t('V2-API-PD-04', '盘点', '完成盘盈：生成盘点入库记录且库存+3（BUG-2 端到端）', 'adjustedCount>=1，库存增加，无日期/外键报错', async () => {
     const before = await request('admin', 'GET', `/api/product-batches/${productId}`)
-    const beforeStock = (before.data || []).reduce((s, x) => s + Number(x.current_stock || 0), 0)
+    const beforeStock = (before.data?.data ?? before.data ?? []).reduce((s, x) => s + Number(x.current_stock || 0), 0)
     const r = await request('admin', 'POST', `/api/stocktaking/${globalThis.__pdGainId}/complete`)
     const after = await request('admin', 'GET', `/api/product-batches/${productId}`)
-    const afterStock = (after.data || []).reduce((s, x) => s + Number(x.current_stock || 0), 0)
+    const afterStock = (after.data?.data ?? after.data ?? []).reduce((s, x) => s + Number(x.current_stock || 0), 0)
     return ok(bodyOf(r).success === true && afterStock === beforeStock + 3,
-      `complete=${bodyOf(r).success || r.status}, adjusted=${bodyOf(r).adjustedCount}, 库存 ${beforeStock}→${afterStock}, msg=${bodyOf(r).message || ''}`)
+      `complete=${bodyOf(r).success || r.status}, adjusted=${bodyOf(r).data?.adjustedCount}, 库存 ${beforeStock}→${afterStock}, msg=${bodyOf(r).message || ''}`)
   }),
   t('V2-API-PD-05', '盘点', '盘盈生成的盘点入库记录字段完整（批号 PANDIAN-*、日期、金额）', '存在 method=盘点入库 记录', async () => {
     const r = await request('admin', 'GET', `/api/in-records?page=1&pageSize=50&product_id=${productId}`)
@@ -470,8 +470,8 @@ const cases = [
     const fd = new FormData()
     fd.append('file', new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'v2import.xlsx')
     const r = await request('admin', 'POST', '/api/import/products', fd)
-    const d = bodyOf(r)
-    return ok(d.success === true && d.imported >= 2 && d.skipped >= 2 && d.total === 4,
+    const d = bodyOf(r).data || {}
+    return ok(bodyOf(r).success === true && d.imported >= 2 && d.skipped >= 2 && d.total === 4,
       `imported=${d.imported}, skipped=${d.skipped}, total=${d.total}, errors=${JSON.stringify(d.errors)}`)
   }),
   t('V2-API-IMP-03', '导入', '导入结果含 imported/skipped/total/errors 契约字段（BUG-9）', '字段齐全', async () => {
@@ -480,7 +480,7 @@ const cases = [
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
     const fd = new FormData(); fd.append('file', new Blob([buf]), 'c.xlsx')
     const r = await request('admin', 'POST', '/api/import/products', fd)
-    const d = bodyOf(r)
+    const d = bodyOf(r).data || {}
     const keys = ['imported', 'skipped', 'total', 'errors']
     return ok(keys.every(k => k in d), '字段: ' + keys.filter(k => k in d).join(','))
   }),
@@ -532,12 +532,12 @@ const cases = [
   t('V2-API-SET-02', '设置', '保存公司信息白名单字段并回显（BUG-11）', 'companyName 保存成功', async () => {
     const r = await request('admin', 'POST', '/api/settings', { companyName: 'V2测试公司', phone: '027-123', address: '武汉', icp: 'V2ICP备000号' })
     const g = await request('admin', 'GET', '/api/settings')
-    return ok(bodyOf(r).success === true && bodyOf(g).companyName === 'V2测试公司', `回显=${bodyOf(g).companyName}`)
+    return ok(bodyOf(r).success === true && bodyOf(g).data?.companyName === 'V2测试公司', `回显=${bodyOf(g).data?.companyName}`)
   }),
   t('V2-API-SET-03', '设置', '非白名单字段被忽略', 'evilKey 不被保存', async () => {
     await request('admin', 'POST', '/api/settings', { evilKey: 'hack', companyName: 'V2测试公司' })
     const g = await request('admin', 'GET', '/api/settings')
-    return ok(!('evilKey' in (bodyOf(g) || {})), 'evilKey=' + (bodyOf(g)?.evilKey ?? '不存在'))
+    return ok(!('evilKey' in (bodyOf(g).data || {})), 'evilKey=' + (bodyOf(g).data?.evilKey ?? '不存在'))
   }),
   t('V2-API-SET-04', '权限隔离', '普通用户不能保存设置', '403', async () => {
     const r = await request('user', 'POST', '/api/settings', { companyName: 'x' })
@@ -590,18 +590,18 @@ const cases = [
   // ============ K. 出入库方式管理 ============
   t('V2-API-METH-01', '方式管理', '管理员获取全部方式', 'methods 数组（12 种）', async () => {
     const r = await request('admin', 'GET', '/api/stock-methods-admin')
-    const arr = bodyOf(r).methods || []
+    const arr = bodyOf(r).data || []
     return ok(r.status === 200 && arr.length >= 12, `count=${arr.length}`)
   }),
   t('V2-API-METH-02', '方式管理', '新增→更新→删除一个临时方式', '全链路 success，最终数量恢复', async () => {
     const before = await request('admin', 'GET', '/api/stock-methods-admin')
-    const n0 = (bodyOf(before).methods || []).length
+    const n0 = (bodyOf(before).data || []).length
     const c = await request('admin', 'POST', '/api/stock-methods-admin', { type: 'in', method_name: 'V2临时方式' })
-    const id = bodyOf(c).method?.id
+    const id = bodyOf(c).data?.id
     const u = await request('admin', 'PUT', `/api/stock-methods-admin/${id}`, { type: 'in', method_name: 'V2临时方式改' })
     const d = await request('admin', 'DELETE', `/api/stock-methods-admin/${id}`)
     const after = await request('admin', 'GET', '/api/stock-methods-admin')
-    const n1 = (bodyOf(after).methods || []).length
+    const n1 = (bodyOf(after).data || []).length
     return ok(bodyOf(c).success && bodyOf(u).success && bodyOf(d).success && n1 === n0,
       `create=${bodyOf(c).success}, update=${bodyOf(u).success}, del=${bodyOf(d).success}, ${n0}→${n1}`)
   }),
