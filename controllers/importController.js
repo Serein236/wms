@@ -59,7 +59,7 @@ const importController = {
             res.json({ success: true, imported, skipped, errors: errors.slice(0, 10), total: data.length });
         } catch (error) {
             console.error('导入商品错误:', error);
-            res.status(500).json({ success: false, message: '导入失败: ' + error.message });
+            res.status(500).json({ success: false, message: '导入失败' });
         }
     },
 

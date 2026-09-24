@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const { requireAdmin } = require('../middleware/auth');
+const { requireLogin, requireAdmin } = require('../middleware/auth');
 const { generateToken } = require('../middleware/csrf');
 const { loginLimiter } = require('../middleware/rateLimiter');
 
@@ -327,6 +327,8 @@ router.get('/check-admin', authController.checkAdmin);
  *                 isDefault:
  *                   type: boolean
  */
-router.get('/check-default-admin', authController.checkDefaultAdmin);
+// 安全：该接口会暴露"admin 是否仍用默认密码"的安全状态，
+// 不得匿名访问，仅登录管理员可用（前端登录成功后调用并提示修改密码）
+router.get('/check-default-admin', requireLogin, requireAdmin, authController.checkDefaultAdmin);
 
 module.exports = router;

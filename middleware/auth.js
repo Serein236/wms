@@ -1,8 +1,20 @@
 const UserModel = require('../models/UserModel');
 
-function requireLogin(req, res, next) {
+async function requireLogin(req, res, next) {
     if (req.session.userId) {
-        next();
+        try {
+            // 每次请求校验用户仍有效且未被禁用：
+            // 防止被禁用用户在 session 有效期（24h）内继续调用业务接口
+            const user = await UserModel.findById(req.session.userId);
+            if (!user || !user.is_active) {
+                req.session.destroy(() => {});
+                return res.status(401).json({ success: false, message: '账号已被禁用或不存在，请重新登录' });
+            }
+            return next();
+        } catch (error) {
+            console.error('登录状态校验失败:', error);
+            return res.status(500).json({ success: false, message: '登录状态校验失败' });
+        }
     } else if (
         // 注意：必须用 originalUrl —— 在 router.use 挂载的中间件里 req.path 是相对路径，
         // 永远不会以 /api/ 开头，导致 API 请求被 302 到 /login.html（SPA 已无该页面）
@@ -27,8 +39,12 @@ async function requireAdmin(req, res, next) {
             return res.status(401).json({ success: false, message: '未登录' });
         }
 
-        const isAdmin = await UserModel.isAdmin(req.session.userId);
-        if (!isAdmin) {
+        const user = await UserModel.findById(req.session.userId);
+        if (!user || !user.is_active) {
+            req.session.destroy(() => {});
+            return res.status(401).json({ success: false, message: '账号已被禁用或不存在，请重新登录' });
+        }
+        if (user.role !== 'admin') {
             return res.status(403).json({ success: false, message: '权限不足，需要管理员权限' });
         }
 

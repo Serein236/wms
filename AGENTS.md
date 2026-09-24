@@ -33,7 +33,7 @@ npm start  # http://localhost:3000
 - **前端**: Vue 3 SPA（Composition API + `<script setup>`）+ Vite 8 构建，源码在 `src/`。技术栈：Vue Router（全部路由懒加载）、Pinia（auth/settings store）、Bootstrap 5（npm 引入 + CSS 变量定制主题）、Chart.js 与 xlsx 按需动态 import。`public/` 目录为旧版多页前端，已不再被 Express 服务，仅作参考保留。
 - **后端服务 SPA**: `store.js` 通过 `express.static('dist')` 提供构建产物，SPA History Fallback 正则为 `/^\/(?!api|api-docs).*/`（排除 API 与 Swagger 路径，静态资源后缀直接 next）
 - **环境变量**: 前端页脚/备案配置在 `.env`（已 gitignore），通过 `import.meta.env.VITE_*` 读取（替代旧的 `public/js/config.js`）
-- **CSRF**: 已禁用（前端不发送 CSRF token），`middleware/csrf.js` 中跳过所有 `/api/` 路径。
+- **CSRF**: 已启用（doubleCsrf，`store.js` 对 `/api` 挂载；token 走 `GET /api/auth/csrf-token`，前端 `src/api/http.js` 非 GET 请求自动携带 `X-CSRF-Token` 并在 403 时刷新重试一次；登录/登出/current-user 等在 `middleware/csrf.js` ignoredPaths 豁免）。本地跑 `tests/` API 回归脚本必须设 `CSRF_DISABLED=true` 再启动服务，否则写请求全部 403。
 - **API 文档**: Swagger UI 在 `/api-docs`
 - **日志**: 写入 `logs/` 目录（由 `utils/logger.js` 自动创建）
 - **备份**: MySQL 导出文件存储在 `backup/`（已 gitignore）
@@ -102,7 +102,7 @@ __tests__/       Jest 单元测试
 
 - `config/databases.js` 已 gitignore — 运行前务必从 `config/databases.example.js` 复制并配置
 - `.env` 已 gitignore（前端页脚/备案配置 VITE_COMPANY_NAME/VITE_ICP/VITE_ICP_URL），本地需手动创建
-- `config/session.js` session 密钥已固定为字符串，不再随机生成（随机生成会导致重启后 session 失效）
+- `config/session.js` 本地开发用固定兜底密钥（避免重启后 session 失效）；生产环境（NODE_ENV=production）必须设置 SESSION_SECRET 环境变量否则拒绝启动，HTTPS 部署时设置 COOKIE_SECURE=true
 - 前端 API 请求统一走 `src/api/`（fetch + `credentials: 'same-origin'`），不要在组件里手写 fetch
 - `vite.config.mjs` 不要改回 `.js`（后端 package.json 无 `"type": "module"`，.js 会按 CJS 解析报 ESM 警告）
 - `publicDir: false` 必须保留 — 否则旧 `public/` 的 21 个 HTML 会复制进 dist/ 与 SPA 冲突
@@ -112,7 +112,8 @@ __tests__/       Jest 单元测试
 - 库存操作（`services/InventoryService.js`）使用 `dbUtils.executeTransaction` — 不要绕过事务包装器进行库存变更
 - 入库记录创建时会自动将供应商名称同步到 suppliers 表
 - 出库记录创建时会自动将客户名称同步到 customers 表
-- CSRF 中间件已禁用（`store.js` 中注释掉了），前端不发送 CSRF token
+- CSRF 中间件已默认启用（见"架构"节）；跑 API 回归前设 `CSRF_DISABLED=true`
+- 生产环境（NODE_ENV=production）必须设置 SESSION_SECRET、CSRF_SECRET、DB_PASSWORD 环境变量，缺失则拒绝启动；HTTPS 部署时设 COOKIE_SECURE=true；/api-docs 在生产环境仅管理员可见
 - 中文编码：所有源码文件必须保存为 UTF-8 编码
 - 供应商和客户数据分别存储在 `suppliers` 和 `customers` 表中，不要混用
 - `inventoryRoutes.js` 中已移除旧的 `/customers` 路由，客户管理使用独立的 `customerRoutes.js`

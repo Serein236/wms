@@ -31,8 +31,14 @@ app.set('trust proxy', 1);
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
 }));
+
+// Swagger（生产环境收紧为仅管理员可见，避免公开暴露全部接口结构）
+if (process.env.NODE_ENV === 'production') {
+    const { requireAdmin } = require('./middleware/auth');
+    app.use('/api-docs', requireAdmin);
+}
 
 // Swagger
 app.get('/api-docs.json', (req, res) => {
@@ -53,11 +59,13 @@ app.use(bodyParser.json());
 app.use(session(sessionConfig));
 app.use(cookieParser());
 
-// CSRF disabled - frontend doesn't use CSRF tokens
-// app.use((req, res, next) => {
-//     if (req.path.startsWith('/api/')) return next();
-//     doubleCsrf(req, res, next);
-// });
+// CSRF 保护（默认启用，覆盖所有 /api 写请求；登录/登出等在 middleware/csrf.js ignoredPaths 中豁免）
+// 本地跑 tests/ 下 API 回归脚本时可设 CSRF_DISABLED=true 临时关闭
+if (process.env.CSRF_DISABLED !== 'true') {
+    app.use('/api', (req, res, next) => {
+        doubleCsrf(req, res, next);
+    });
+}
 
 // Login status check
 app.use(checkLoggedIn);

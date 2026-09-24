@@ -77,18 +77,24 @@ const ProductModel = {
             }
         }
         
-        const result = await dbUtils.insert(
-            'INSERT INTO products (product_code, name, spec, unit, packing_spec, retail_price, barcode, manufacturer) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [product_code, name, spec, unit, packing_spec, retail_price, barcode, manufacturer]
-        );
-        
-        // 创建商品后，初始化库存记录
-        await dbUtils.insert(
-            'INSERT INTO stock_inventory (product_id, total_in_quantity, total_out_quantity, current_stock, warning_quantity, danger_quantity) VALUES (?, 0, 0, 0, ?, ?)',
-            [result.insertId, warning_quantity, danger_quantity]
-        );
-        
-        return { id: result.insertId, product_code, ...productData };
+        // 商品 + 库存初始化放进同一事务：
+        // 避免 stock_inventory 初始化失败产生"无库存行的商品"（后续出库全报总库存不足）
+        return await dbUtils.executeTransaction(async (connection) => {
+            const result = await dbUtils.insert(
+                'INSERT INTO products (product_code, name, spec, unit, packing_spec, retail_price, barcode, manufacturer) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [product_code, name, spec, unit, packing_spec, retail_price, barcode, manufacturer],
+                connection
+            );
+
+            // 创建商品后，初始化库存记录
+            await dbUtils.insert(
+                'INSERT INTO stock_inventory (product_id, total_in_quantity, total_out_quantity, current_stock, warning_quantity, danger_quantity) VALUES (?, 0, 0, 0, ?, ?)',
+                [result.insertId, warning_quantity, danger_quantity],
+                connection
+            );
+
+            return { id: result.insertId, product_code, ...productData };
+        });
     },
 
     async update(id, productData) {
@@ -107,6 +113,18 @@ const ProductModel = {
         }
         
         return { id, ...productData };
+    },
+
+    // 统计商品的出入库记录数（删除前引用检查：
+    // in_records/out_records/batch_stock/stock_inventory 对 products 均为 ON DELETE CASCADE，
+    // 直接删除会静默级联清空该商品全部历史流水，不可恢复）
+    async countRecords(id) {
+        const result = await dbUtils.queryOne(
+            `SELECT (SELECT COUNT(*) FROM in_records WHERE product_id = ?) +
+                    (SELECT COUNT(*) FROM out_records WHERE product_id = ?) AS count`,
+            [id, id]
+        );
+        return result ? Number(result.count) : 0;
     },
 
     async delete(id) {

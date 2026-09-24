@@ -56,7 +56,7 @@
               <td>¥{{ formatMoney(r.unit_price) }}</td>
               <td>¥{{ formatMoney(r.total_amount) }}</td>
               <td>{{ r.destination || '-' }}</td>
-              <td>{{ r.display_date || r.recorded_date || '-' }}</td>
+              <td>{{ formatDate(r.display_date || r.recorded_date) || '-' }}</td>
               <td>{{ r.remark || '-' }}</td>
               <td>
                 <button class="btn btn-sm btn-outline-warning" @click="openEdit(r)" title="修改">
@@ -151,7 +151,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { inventoryApi } from '@/api/inventory'
 import { useToast } from '@/composables/useToast'
-import { formatMoney, debounce, generateMonthOptions } from '@/utils/formatters'
+import { formatDate, formatMoney, debounce, generateMonthOptions } from '@/utils/formatters'
 import { exportOutOrderExcel } from '@/utils/exportOrder'
 import { useSettingsStore } from '@/stores/settings'
 import BaseModal from '@/components/common/BaseModal.vue'

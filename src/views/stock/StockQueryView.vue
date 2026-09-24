@@ -140,7 +140,7 @@
               </thead>
               <tbody>
                 <tr v-for="r in (detail?.inRecords || []).slice(0, 100)" :key="r.id">
-                  <td>{{ r.recorded_date }}</td>
+                  <td>{{ formatDate(r.recorded_date) }}</td>
                   <td>{{ r.stock_method_name }}</td>
                   <td>{{ r.batch_number }}</td>
                   <td class="text-success">+{{ r.quantity }}</td>
@@ -161,7 +161,7 @@
               </thead>
               <tbody>
                 <tr v-for="r in (detail?.outRecords || []).slice(0, 100)" :key="r.id">
-                  <td>{{ r.recorded_date }}</td>
+                  <td>{{ formatDate(r.recorded_date) }}</td>
                   <td>{{ r.stock_method_name }}</td>
                   <td>{{ r.batch_number }}</td>
                   <td class="text-warning">-{{ r.quantity }}</td>

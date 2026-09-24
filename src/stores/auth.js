@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { authApi } from '@/api/auth'
+import { resetCsrfToken } from '@/api/http'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -28,6 +29,8 @@ export const useAuthStore = defineStore('auth', {
       if (data.success === false) {
         throw new Error(data.message || '登录失败')
       }
+      // 登录后 session 轮换，旧 CSRF token 失效，强制下次请求重新获取
+      resetCsrfToken()
       this.loggedIn = true
       this.user = username
       this.role = data.role || 'user'
@@ -40,6 +43,7 @@ export const useAuthStore = defineStore('auth', {
       } catch (e) {
         // 忽略登出请求错误
       }
+      resetCsrfToken()
       this.clearSession()
     },
 

@@ -10,6 +10,23 @@ const logger = require('../utils/logger');
 const { parsePagination, addPagination, buildPaginationResponse } = require('../utils/pagination');
 const SupplierModel = require('../models/SupplierModel');
 
+// 对外错误信息兜底：业务校验类错误（代码主动抛出的中文提示）可透传；
+// DB/系统错误统一返回兜底文案，避免泄露表名、约束名、路径等信息
+function safeMessage(error, fallback) {
+    const msg = error && error.message ? error.message : '';
+    return /库存不足|不存在|不允许|必须|无法|已存在|不能|无效|请输入|请选择|已被使用|正整数/.test(msg) ? msg : fallback;
+}
+
+// 金额兜底：unit_price 缺省按 0，total_amount 缺省按 数量×单价，
+// 防止 undefined 写入 NOT NULL 列或触发 mysql2 绑定参数报错
+function resolveAmount(quantity, unit_price, total_amount) {
+    const price = unit_price !== undefined && unit_price !== null && unit_price !== '' ? parseFloat(unit_price) : 0;
+    const total = total_amount !== undefined && total_amount !== null && total_amount !== ''
+        ? parseFloat(total_amount)
+        : parseFloat((Number(quantity) * price).toFixed(2));
+    return { unitPrice: price, totalAmount: total };
+}
+
 const inventoryController = {
     async inStock(req, res) {
         const { product_id, stock_method_name, batch_number, production_date, expiration_date, quantity, unit_price, total_amount, source, remark, recorded_date } = req.body;
@@ -40,8 +57,9 @@ const inventoryController = {
             const productName = product ? product.name : '未知商品';
 
             // 先执行库存事务；只有入库成功后才自动登记供应商，避免失败时产生垃圾数据
+            const { unitPrice, totalAmount } = resolveAmount(quantity, unit_price, total_amount);
             await InventoryService.inStock({
-                product_id, stock_method_name, batch_number, production_date: formattedProductionDate, expiration_date: formattedExpirationDate, quantity, unit_price, total_amount, source, remark, recorded_date: formattedDate, created_by
+                product_id, stock_method_name, batch_number, production_date: formattedProductionDate, expiration_date: formattedExpirationDate, quantity: Number(quantity), unit_price: unitPrice, total_amount: totalAmount, source, remark, recorded_date: formattedDate, created_by
             });
 
             // Auto-create supplier if new name（事务成功后）
@@ -57,9 +75,9 @@ const inventoryController = {
         } catch (error) {
             console.error('入库错误:', error);
             logger.error('入库失败', { operator: username, operatorId: req.session.userId, product_id, stock_method_name, batch_number, quantity, error: error.message });
-            res.status(500).json({ 
-                success: false, 
-                message: error.message || '入库失败' 
+            res.status(500).json({
+                success: false,
+                message: safeMessage(error, '入库失败')
             });
         }
     },
@@ -91,8 +109,9 @@ const inventoryController = {
             const productName = product ? product.name : '未知商品';
 
             // 先执行库存事务；库存不足等失败会抛错返回 409，此时不得创建客户
+            const { unitPrice, totalAmount } = resolveAmount(quantity, unit_price, total_amount);
             await InventoryService.outStock({
-                product_id, stock_method_name, batch_number, quantity, unit_price, total_amount, destination, remark, recorded_date: formattedDate, created_by
+                product_id, stock_method_name, batch_number, quantity: Number(quantity), unit_price: unitPrice, total_amount: totalAmount, destination, remark, recorded_date: formattedDate, created_by
             });
 
             // Auto-create customer if new name（事务成功后）
@@ -112,7 +131,7 @@ const inventoryController = {
             const isStockError = stockErrors.includes(error.message);
             res.status(isStockError ? 409 : 500).json({
                 success: false,
-                message: error.message || '出库失败'
+                message: safeMessage(error, '出库失败')
             });
         }
     },
@@ -413,7 +432,7 @@ const inventoryController = {
         } catch (error) {
             console.error('撤销入库错误:', error);
             logger.error('撤销入库失败', { operator: username, operatorId: userId, inRecordId: id, error: error.message });
-            res.status(500).json({ success: false, message: error.message || '撤销入库失败' });
+            res.status(500).json({ success: false, message: safeMessage(error, '撤销入库失败') });
         }
     },
 
@@ -469,7 +488,7 @@ const inventoryController = {
         } catch (error) {
             console.error('修改入库错误:', error);
             logger.error('修改入库失败', { operator: username, operatorId: userId, inRecordId: id, error: error.message });
-            res.status(500).json({ success: false, message: error.message || '修改入库失败' });
+            res.status(500).json({ success: false, message: safeMessage(error, '修改入库失败') });
         }
     },
 
@@ -486,7 +505,7 @@ const inventoryController = {
         } catch (error) {
             console.error('撤销出库错误:', error);
             logger.error('撤销出库失败', { operator: username, operatorId: userId, outRecordId: id, error: error.message });
-            res.status(500).json({ success: false, message: error.message || '撤销出库失败' });
+            res.status(500).json({ success: false, message: safeMessage(error, '撤销出库失败') });
         }
     },
 
@@ -538,7 +557,7 @@ const inventoryController = {
         } catch (error) {
             console.error('修改出库错误:', error);
             logger.error('修改出库失败', { operator: username, operatorId: userId, outRecordId: id, error: error.message });
-            res.status(500).json({ success: false, message: error.message || '修改出库失败' });
+            res.status(500).json({ success: false, message: safeMessage(error, '修改出库失败') });
         }
     },
 
@@ -559,7 +578,7 @@ const inventoryController = {
         } catch (error) {
             console.error('清理数据错误:', error);
             logger.error('清理数据失败', { operator: username, operatorId: userId, error: error.message });
-            res.status(500).json({ success: false, message: '数据清理失败: ' + error.message });
+            res.status(500).json({ success: false, message: safeMessage(error, '数据清理失败') });
         }
     },
 
@@ -607,7 +626,7 @@ const inventoryController = {
         } catch (error) {
             console.error('创建出入库方式错误:', error);
             logger.error('创建出入库方式失败', { operator: username, operatorId: userId, type, method_name, error: error.message });
-            res.status(500).json({ success: false, message: error.message || '创建出入库方式失败' });
+            res.status(500).json({ success: false, message: safeMessage(error, '创建出入库方式失败') });
         }
     },
 
@@ -634,7 +653,7 @@ const inventoryController = {
         } catch (error) {
             console.error('更新出入库方式错误:', error);
             logger.error('更新出入库方式失败', { operator: username, operatorId: userId, id, type, method_name, error: error.message });
-            res.status(500).json({ success: false, message: error.message || '更新出入库方式失败' });
+            res.status(500).json({ success: false, message: safeMessage(error, '更新出入库方式失败') });
         }
     },
 
@@ -656,7 +675,7 @@ const inventoryController = {
         } catch (error) {
             console.error('删除出入库方式错误:', error);
             logger.error('删除出入库方式失败', { operator: username, operatorId: userId, id, error: error.message });
-            res.status(500).json({ success: false, message: error.message || '删除出入库方式失败' });
+            res.status(500).json({ success: false, message: safeMessage(error, '删除出入库方式失败') });
         }
     }
 };

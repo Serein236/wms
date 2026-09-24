@@ -11,65 +11,71 @@ const BackupService = require('./BackupService');
 const SettingsService = require('./SettingsService');
 
 const InventoryService = {
-    async inStock(data) {
-        return await dbUtils.executeTransaction(async (connection) => {
-            const record = await InRecordModel.create(data, connection);
-            
+    // connection 可选：传入外部事务连接时并入该事务（如盘点完成需整体原子提交），
+    // 不传时自建事务，行为与原来一致
+    async inStock(data, connection = null) {
+        const exec = async (conn) => {
+            const record = await InRecordModel.create(data, conn);
+
             const existingBatch = await dbUtils.queryOne(
                 'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
                 [data.product_id, data.batch_number],
-                connection
+                conn
             );
-            
+
             if (existingBatch) {
                 await dbUtils.update(
                     'UPDATE batch_stock SET batch_in_quantity = batch_in_quantity + ?, batch_current_stock = batch_current_stock + ? WHERE id = ?',
                     [data.quantity, data.quantity, existingBatch.id],
-                    connection
+                    conn
                 );
             } else {
                 await dbUtils.insert(
                     'INSERT INTO batch_stock (product_id, batch_number, production_date, expiration_date, batch_in_quantity, batch_out_quantity, batch_current_stock, batch_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                     [data.product_id, data.batch_number, data.production_date, data.expiration_date, data.quantity, 0, data.quantity, 'normal'],
-                    connection
+                    conn
                 );
             }
-            
-            await StockModel.updateStock(data.product_id, data.quantity, 0, connection);
-            
+
+            await StockModel.updateStock(data.product_id, data.quantity, 0, conn);
+
             return record;
-        });
+        };
+        if (connection) return await exec(connection);
+        return await dbUtils.executeTransaction(exec);
     },
 
-    async outStock(data) {
-        return await dbUtils.executeTransaction(async (connection) => {
+    async outStock(data, connection = null) {
+        const exec = async (conn) => {
             const batchStock = await dbUtils.queryOne(
                 'SELECT * FROM batch_stock WHERE product_id = ? AND batch_number = ?',
                 [data.product_id, data.batch_number],
-                connection
+                conn
             );
-            
+
             if (!batchStock || batchStock.batch_current_stock < data.quantity) {
                 throw new Error('批次库存不足');
             }
-            
-            const stock = await StockModel.findByProductId(data.product_id, connection);
+
+            const stock = await StockModel.findByProductId(data.product_id, conn);
             if (!stock || stock.current_stock < data.quantity) {
                 throw new Error('总库存不足');
             }
-            
-            const record = await OutRecordModel.create(data, connection);
-            
+
+            const record = await OutRecordModel.create(data, conn);
+
             await dbUtils.update(
                 'UPDATE batch_stock SET batch_out_quantity = batch_out_quantity + ?, batch_current_stock = batch_current_stock - ? WHERE id = ?',
                 [data.quantity, data.quantity, batchStock.id],
-                connection
+                conn
             );
-            
-            await StockModel.updateStock(data.product_id, 0, data.quantity, connection);
-            
+
+            await StockModel.updateStock(data.product_id, 0, data.quantity, conn);
+
             return record;
-        });
+        };
+        if (connection) return await exec(connection);
+        return await dbUtils.executeTransaction(exec);
     },
 
     async getStockReport() {
@@ -223,6 +229,29 @@ const InventoryService = {
                 throw new Error('入库记录不存在');
             }
 
+            // 批次号与商品不允许修改：库存差额始终按原批次调整，
+            // 若允许改批次/商品会导致记录与批次账永久错位。如需更换请撤销后重新录入。
+            if (data.batch_number !== undefined && data.batch_number !== originalRecord.batch_number) {
+                throw new Error('不允许修改批次号，如需更换批次请撤销原记录后重新录入');
+            }
+            if (data.product_id !== undefined && Number(data.product_id) !== originalRecord.product_id) {
+                throw new Error('不允许修改商品，请撤销原记录后重新录入');
+            }
+
+            // 数量校验：缺 quantity 或传入 0/负数/非整数时拒绝，
+            // 避免 NaN 进入 SQL 或把库存调成负值
+            if (data.quantity !== undefined && (!Number.isInteger(Number(data.quantity)) || Number(data.quantity) <= 0)) {
+                throw new Error('数量必须为正整数');
+            }
+
+            // 合计金额联动：调用方改了数量或单价但未显式给 total_amount 时，
+            // 按 数量×单价 重算（缺省值取原记录），避免合计与明细不一致
+            if (data.total_amount === undefined && (data.quantity !== undefined || data.unit_price !== undefined)) {
+                const newQuantity = data.quantity !== undefined ? data.quantity : originalRecord.quantity;
+                const newUnitPrice = data.unit_price !== undefined ? data.unit_price : originalRecord.unit_price;
+                data.total_amount = parseFloat((Number(newQuantity) * Number(newUnitPrice)).toFixed(2));
+            }
+
             const quantityDiff = data.quantity - originalRecord.quantity;
 
             if (quantityDiff !== 0) {
@@ -312,6 +341,29 @@ const InventoryService = {
             const originalRecord = await OutRecordModel.findById(outRecordId, connection);
             if (!originalRecord) {
                 throw new Error('出库记录不存在');
+            }
+
+            // 批次号与商品不允许修改：库存差额始终按原批次调整，
+            // 若允许改批次/商品会导致记录与批次账永久错位。如需更换请撤销后重新录入。
+            if (data.batch_number !== undefined && data.batch_number !== originalRecord.batch_number) {
+                throw new Error('不允许修改批次号，如需更换批次请撤销原记录后重新录入');
+            }
+            if (data.product_id !== undefined && Number(data.product_id) !== originalRecord.product_id) {
+                throw new Error('不允许修改商品，请撤销原记录后重新录入');
+            }
+
+            // 数量校验：缺 quantity 或传入 0/负数/非整数时拒绝，
+            // 避免 NaN 进入 SQL 或把库存调成负值
+            if (data.quantity !== undefined && (!Number.isInteger(Number(data.quantity)) || Number(data.quantity) <= 0)) {
+                throw new Error('数量必须为正整数');
+            }
+
+            // 合计金额联动：调用方改了数量或单价但未显式给 total_amount 时，
+            // 按 数量×单价 重算（缺省值取原记录），避免合计与明细不一致
+            if (data.total_amount === undefined && (data.quantity !== undefined || data.unit_price !== undefined)) {
+                const newQuantity = data.quantity !== undefined ? data.quantity : originalRecord.quantity;
+                const newUnitPrice = data.unit_price !== undefined ? data.unit_price : originalRecord.unit_price;
+                data.total_amount = parseFloat((Number(newQuantity) * Number(newUnitPrice)).toFixed(2));
             }
 
             const quantityDiff = data.quantity - originalRecord.quantity;

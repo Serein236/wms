@@ -245,7 +245,17 @@ const productController = {
             // 获取商品名称用于日志记录
             const product = await ProductModel.findById(id);
             const productName = product ? product.name : '未知商品';
-            
+
+            // 引用检查：有出入库流水的商品禁止删除，
+            // 否则外键 ON DELETE CASCADE 会静默级联清空全部历史记录
+            const recordCount = await ProductModel.countRecords(id);
+            if (recordCount > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `该商品存在 ${recordCount} 条出入库记录，删除将级联清空全部历史流水，已禁止删除。如确需停用请修改商品信息标注。`
+                });
+            }
+
             await ProductModel.delete(id);
             
             logger.productDeleted(id, productName, product ? product.product_code || 'N/A' : '未知', username, userId);

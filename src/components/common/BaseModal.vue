@@ -57,6 +57,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown)
+  // 卸载时必须恢复 body 滚动：
+  // 弹窗打开状态下路由跳转（如浏览器后退）否则会导致整页永久 overflow:hidden
+  document.body.style.overflow = ''
 })
 
 function handleClose() {

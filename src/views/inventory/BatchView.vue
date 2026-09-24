@@ -115,6 +115,12 @@ const router = useRouter()
 const toast = useToast()
 
 const mode = ref(route.params.mode === 'out' ? 'out' : 'in')
+
+// /batch/in ↔ /batch/out 导航时组件实例复用，
+// 必须监听 route.params.mode 同步页签状态，否则 URL 与页面不一致
+watch(() => route.params.mode, (v) => {
+  mode.value = v === 'out' ? 'out' : 'in'
+})
 const rows = ref([])
 const submitting = ref(false)
 const products = ref([])

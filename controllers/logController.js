@@ -308,7 +308,7 @@ async function getLogs(req, res) {
         console.error('获取日志错误:', error);
         res.status(500).json({
             success: false,
-            message: '获取日志失败: ' + error.message
+            message: '获取日志失败'
         });
     }
 }
@@ -389,7 +389,7 @@ async function getRawLogs(req, res) {
         console.error('获取原始日志错误:', error);
         res.status(500).json({
             success: false,
-            message: '获取原始日志失败: ' + error.message
+            message: '获取原始日志失败'
         });
     }
 }
@@ -425,7 +425,7 @@ async function getLogDates(req, res) {
         console.error('获取日志日期错误:', error);
         res.status(500).json({
             success: false,
-            message: '获取日志日期失败: ' + error.message
+            message: '获取日志日期失败'
         });
     }
 }

@@ -43,6 +43,20 @@ const StockMethodModel = {
             if (existing && existing.id !== parseInt(id)) {
                 throw new Error('该方式名称已存在');
             }
+
+            // 引用检查：名称已被出入库记录引用时禁止重命名
+            // （fk 为 ON UPDATE RESTRICT，直接改名将触发外键错误 500；与 delete 的检查对称）
+            const inUse = await dbUtils.queryOne(
+                'SELECT COUNT(*) as count FROM in_records WHERE stock_method_name = ?',
+                [oldMethod.method_name]
+            );
+            const outUse = await dbUtils.queryOne(
+                'SELECT COUNT(*) as count FROM out_records WHERE stock_method_name = ?',
+                [oldMethod.method_name]
+            );
+            if (inUse.count > 0 || outUse.count > 0) {
+                throw new Error('该出入库方式已被使用，无法重命名');
+            }
         }
 
         await dbUtils.update(

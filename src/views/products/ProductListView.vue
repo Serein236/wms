@@ -55,7 +55,7 @@
               <td>{{ p.spec || '-' }}</td>
               <td>{{ p.packing_spec || '-' }}</td>
               <td>{{ p.unit || '-' }}</td>
-              <td>{{ p.retail_price ? '¥' + p.retail_price : '-' }}</td>
+              <td>{{ p.retail_price != null && p.retail_price !== '' ? '¥' + formatMoney(p.retail_price) : '-' }}</td>
               <td>{{ p.manufacturer || '-' }}</td>
               <td>
                 <span class="badge" :class="(p.stock || 0) < 10 ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'">
@@ -112,7 +112,7 @@
         <div class="col-md-6"><label class="text-muted">规格</label><p>{{ selectedProduct.spec || '-' }}</p></div>
         <div class="col-md-6"><label class="text-muted">装箱规格</label><p>{{ selectedProduct.packing_spec || '-' }}</p></div>
         <div class="col-md-4"><label class="text-muted">单位</label><p>{{ selectedProduct.unit || '-' }}</p></div>
-        <div class="col-md-4"><label class="text-muted">零售价</label><p>{{ selectedProduct.retail_price ? '¥' + selectedProduct.retail_price : '-' }}</p></div>
+        <div class="col-md-4"><label class="text-muted">零售价</label><p>{{ selectedProduct.retail_price != null && selectedProduct.retail_price !== '' ? '¥' + formatMoney(selectedProduct.retail_price) : '-' }}</p></div>
         <div class="col-md-4"><label class="text-muted">条形码</label><p>{{ selectedProduct.barcode || '-' }}</p></div>
         <div class="col-md-6"><label class="text-muted">生产厂家</label><p>{{ selectedProduct.manufacturer || '-' }}</p></div>
         <div class="col-md-3"><label class="text-muted">预警数量</label><p>{{ selectedProduct.warning_quantity ?? 10 }}</p></div>
@@ -131,7 +131,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { productsApi } from '@/api/products'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
-import { debounce } from '@/utils/formatters'
+import { debounce, formatMoney } from '@/utils/formatters'
 import BaseModal from '@/components/common/BaseModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'

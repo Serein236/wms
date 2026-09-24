@@ -60,7 +60,7 @@
               <td>¥{{ formatMoney(r.unit_price) }}</td>
               <td>¥{{ formatMoney(r.total_amount) }}</td>
               <td>{{ r.source || '-' }}</td>
-              <td>{{ r.display_date || r.recorded_date || '-' }}</td>
+              <td>{{ formatDate(r.display_date || r.recorded_date) || '-' }}</td>
               <td>{{ r.remark || '-' }}</td>
               <td>
                 <button class="btn btn-sm btn-outline-warning" @click="openEdit(r)" title="修改">

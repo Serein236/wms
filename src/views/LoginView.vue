@@ -56,11 +56,6 @@
           <i v-else class="bi bi-box-arrow-in-right me-1"></i>
           {{ loading ? '登录中...' : '登录' }}
         </button>
-
-        <div v-if="isDefaultAdmin" class="default-hint">
-          <i class="bi bi-info-circle"></i>
-          默认账号 admin / admin123，请及时修改密码
-        </div>
       </form>
     </div>
 
@@ -75,31 +70,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 import { authApi } from '@/api/auth'
 import { config } from '@/utils/config'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const toast = useToast()
 
 const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
-const isDefaultAdmin = ref(false)
-
-onMounted(async () => {
-  try {
-    const data = await authApi.checkDefaultAdmin()
-    isDefaultAdmin.value = data.isDefault || false
-  } catch (e) {
-    // 忽略检查失败
-  }
-})
 
 async function handleLogin() {
   if (!username.value || !password.value) return
@@ -109,6 +96,18 @@ async function handleLogin() {
 
   try {
     await auth.login(username.value, password.value)
+    // 默认密码提示改为登录成功后仅对管理员检查（该接口已收紧为仅管理员可用），
+    // 不再在登录页匿名暴露"默认密码是否在用"的安全状态
+    if (auth.role === 'admin') {
+      try {
+        const data = await authApi.checkDefaultAdmin()
+        if (data.isDefault) {
+          toast.warning('admin 仍在使用默认密码，请尽快到「设置」中修改')
+        }
+      } catch (e) {
+        // 检查失败不阻塞登录
+      }
+    }
     const redirect = route.query.redirect || '/home'
     router.push(redirect)
   } catch (e) {

@@ -48,7 +48,7 @@
                   {{ item.is_active ? '启用' : '禁用' }}
                 </span>
               </td>
-              <td>{{ formatDate(item.created_at) }}</td>
+              <td>{{ formatDate(item.created_at, true) || '-' }}</td>
               <td>
                 <template v-if="item.username === currentUsername">
                   <span class="text-muted small">—</span>
@@ -131,6 +131,7 @@ import { ref, computed, onMounted } from 'vue'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { formatDate } from '@/utils/formatters'
 import BaseModal from '@/components/common/BaseModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -151,14 +152,6 @@ const deleteTarget = ref(null)
 const currentUsername = computed(() => authStore.user || '')
 
 const form = ref({ username: '', role: 'user', password: '' })
-
-function formatDate(v) {
-  if (!v) return '-'
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return String(v).replace('T', ' ').slice(0, 16)
-  const p = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
 
 async function loadUsers() {
   loading.value = true
