@@ -6,7 +6,8 @@ const STORAGE_KEY = 'warehouse_settings'
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
     settings: loadFromStorage(),
-    loaded: false
+    loaded: false,       // 完整设置（受保护接口 /api/settings）是否已加载
+    publicLoaded: false  // 公开设置（/api/settings/public，登录页页脚用）是否已加载
   }),
 
   getters: {
@@ -54,7 +55,10 @@ export const useSettingsStore = defineStore('settings', {
           this.settings = { ...this.settings, ...data }
           this.saveToStorage()
         }
-        this.loaded = true
+        // 注意：不能置 loaded = true。公开接口只返回 companyName/icp/icpUrl，
+        // 若置 true 会让 AppLayout 跳过登录后的完整加载，导致 address/phone/export
+        // 等字段缺失（出库单导出会丢公司地址、电话），故只用独立的 publicLoaded 标记。
+        this.publicLoaded = true
       } catch (e) {
         // 加载失败时使用 localStorage 中的缓存
       }

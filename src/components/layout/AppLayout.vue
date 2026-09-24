@@ -4,7 +4,7 @@
     <aside class="sidebar" :class="{ show: sidebarOpen }">
       <div class="sidebar-brand">
         <i class="bi bi-warehouse"></i>
-        <span>{{ config.companyName }}</span>
+        <span>{{ settingsStore.companyName }}</span>
       </div>
       <nav class="sidebar-nav">
         <template v-for="item in visibleMenuItems" :key="item.label">

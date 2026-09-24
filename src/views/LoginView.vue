@@ -3,7 +3,7 @@
     <div class="login-card">
       <div class="login-header">
         <i class="bi bi-warehouse"></i>
-        <h2>{{ config.companyName }}</h2>
+        <h2>{{ settingsStore.companyName }}</h2>
         <p>请登录以继续</p>
       </div>
 
